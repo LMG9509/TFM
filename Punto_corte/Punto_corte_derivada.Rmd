@@ -1,0 +1,45 @@
+---
+title: "Derivada"
+author: "Lorena Martínez García"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+library(phyloseq)
+library(vegan)
+library(dplyr)
+```
+
+
+```{r}
+#Se parte de un objeto phyloseq, se extrae la otu table
+datos_otu<-as.data.frame(otu_table(phyloseq_object_lr))
+
+```
+
+```{r}
+# Generar datos de rarefacción con rarecurve
+datos_curva <- rarecurve(t(datos_otu), step = 50, tidy = TRUE)
+
+# Calcular la curva promedio
+curva_promedio <- datos_curva %>%
+    group_by(Sample) %>%
+    summarize(RiquezaMedia = mean(Species))
+
+# Graficar la curva promedio
+plot(curva_promedio$Sample, curva_promedio$RiquezaMedia, type = "l", xlab = "Tamaño de la Muestra", ylab = "Riqueza de Especies Promedio")
+```
+
+```{r}
+# Calculo de la derivada
+  derivada <- diff(curva_promedio$RiquezaMedia)
+# Se normaliza la derivada
+  derivada_normalizada <- derivada / max(derivada_acumulacion)
+  #Umbral de cambio
+  umbral_cambio = 0.01
+  # Punto de corte donde el cambio relativo cae por debajo del umbral
+  punto_corte <- which(derivada_normalizada < umbral_cambio)[1]
+```
+
