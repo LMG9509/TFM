@@ -1,0 +1,414 @@
+---
+title: "Segmented"
+author: "Lorena Martínez García"
+date: '2023-12-30'
+output: html_document
+---
+```{r}
+#Se cargan las librerias
+library(phyloseq)
+library(vegan)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(segmented)
+```
+
+
+```{r}
+#Se cargan los objetos phyloseq
+phyloseq_u <- readRDS("E:/TFM/dada2_phyloseq_u.rds")
+phyloseq_hr <- readRDS("E:/TFM/dada2_phyloseq_hr.rds")
+phyloseq_lr <- readRDS("E:/TFM/dada2_phyloseq_lr.rds")
+phyloseq_b <- readRDS("E:/TFM/dada2_phyloseq_b.rds")
+```
+
+
+Se almacenan los puntos de corte de los otros métodos para gráficar las curvas de rarefacción con todos los puntos de corte indicados:
+```{r}
+#se toma el punto de corte de tamaño muestrak mínimo
+raremax_b<-min(rowSums(t(otu_table(phyloseq_b))))
+raremax_hr<- min(rowSums(t(otu_table(phyloseq_hr))))
+raremax_lr<- min(rowSums(t(otu_table(phyloseq_lr))))
+raremax_u<-min(rowSums(t(otu_table(phyloseq_u))))
+```
+
+
+```{r}
+#Función para generar la curva acumulada
+
+generar_curva_acumulada <- function(phyloseq_obj) {
+  # Extraer la tabla OTU del objeto phyloseq
+  datos_otu <-as.data.frame(otu_table(phyloseq_obj))
+  
+  # Generar datos de rarefacción con rarecurve
+  datos_curva <- rarecurve(t(datos_otu), tidy = TRUE)
+  
+  # Calcular la curva promedio
+  curva_acumulada <- datos_curva %>%
+    group_by(Sample) %>%
+    summarize(RiquezaAcumulada = sum(Species, na.rm = TRUE))
+  
+  return(curva_acumulada)
+}
+```
+
+
+```{r}
+#Se generan las curvas acumuladas
+curva_ac_lr <- generar_curva_acumulada(phyloseq_lr)
+curva_ac_hr <- generar_curva_acumulada(phyloseq_hr)
+curva_ac_b <- generar_curva_acumulada(phyloseq_b)
+curva_ac_u <- generar_curva_acumulada(phyloseq_u)
+```
+
+```{r}
+ #Función para determinar punto de corte mediante la regresión segmentada
+
+encontrar_puntos_quiebre <- function(datos) {
+  # Se aplica el modelo de regresión lineal
+  modelo_lineal <- lm(RiquezaAcumulada ~ Sample, data = datos)
+  
+  # Se aplica la regresión segmentada
+  modelo_segmentado <- segmented(modelo_lineal)
+
+  
+  # Obtener los puntos de quiebre
+  puntos_quiebre <- modelo_segmentado$psi[[2]]
+    return(puntos_quiebre)
+}
+```
+
+
+```{r}
+#Se calculan los puntos de quiebre
+punto_quiebre_hr<-encontrar_puntos_quiebre(curva_ac_hr)
+punto_quiebre_lr<-encontrar_puntos_quiebre(curva_ac_lr)
+punto_quiebre_b<-encontrar_puntos_quiebre(curva_ac_b)
+punto_quiebre_u<-encontrar_puntos_quiebre(curva_ac_u)
+```
+
+
+```{r}
+#Alto número de lecturas
+otu_hr<-as.data.frame(t(otu_table(phyloseq_hr)))
+#Se establece el argumento tidy =TRUE para extraer los datos
+rare_hr<-rarecurve(otu_hr,step = 50,tidy=TRUE)
+#Se añade la variable Escenario 
+rare_hr$Escenario<-"Alto número de lecturas"
+```
+
+```{r}
+#Balanceado
+otu_b<-as.data.frame(t(otu_table(phyloseq_b)))
+#Se establece el argumento tidy =TRUE para extraer los datos
+rare_b<-rarecurve(otu_b,step = 50,tidy=TRUE)
+#Se añade la variable Escenario 
+rare_b$Escenario<-"Balanceado"
+```
+
+```{r}
+#Bajo número de lecturas
+otu_lr<-as.data.frame(t(otu_table(phyloseq_lr)))
+#Se establece el argumento tidy =TRUE para extraer los datos
+rare_lr<-rarecurve(otu_lr,step = 50,tidy=TRUE)
+#Se añade la variable Escenario 
+rare_lr$Escenario<-"Bajo número de lecturas"
+```
+
+```{r}
+#Desigual
+otu_u<-as.data.frame(t(otu_table(phyloseq_u)))
+#Se establece el argumento tidy =TRUE para extraer los datos
+rare_u<-rarecurve(otu_u,step = 50,tidy=TRUE)
+#Se añade la variable Escenario 
+rare_u$Escenario<-"Desigual"
+```
+
+
+```{r}
+datos_comb_Seg<-rbind(rare_b,rare_hr,rare_u) #Se combinan los datos para plotear las gráficas de rarefacción
+```
+
+
+```{r}
+#Rarefacción sin reemplazo
+set.seed(123)
+rarefied_hr_seg<-rarefy_even_depth(phyloseq_hr, sample.size=punto_quiebre_hr,replace = FALSE, rngseed=123)
+rarefied_b_seg<-rarefy_even_depth(phyloseq_b, sample.size=punto_quiebre_b,replace = FALSE, rngseed=123)
+rarefied_lr_seg<-rarefy_even_depth(phyloseq_lr, sample.size=punto_quiebre_lr, replace = FALSE,rngseed=123)
+rarefied_u_seg<-rarefy_even_depth(phyloseq_u, sample.size=punto_quiebre_u,replace = FALSE, rngseed=123)
+```
+```{r}
+#Se guardan el resto de puntos de corte de los métodos de la derivada de la pendiente y método logístico
+#Derivada
+punto_corte_hr<-5076
+punto_corte_b<-54
+punto_corte_lr<-10
+punto_corte_u<-241
+
+#Logístico
+punto_saturacion_hr<-10305.29 
+punto_saturacion_b<-59.04569  
+punto_saturacion_u<-258.2098
+punto_saturacion_lr<-14.23846
+```
+
+Se grafican las curvas de rarefacción con todos los puntos de corte con los que se ha trabajado en este estudio:
+
+```{r}
+#Gráficas de curas de rarefacción con todos los puntos de corte
+curvas_seg<-ggplot(datos_comb_Seg, aes(x = Sample, y = Species, group = Site, color = Site))+labs(color = "Muestras") + geom_line()+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = raremax_hr), linetype = "dashed", color = "red")+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = punto_quiebre_hr), linetype = "dashed", color = "green")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = punto_saturacion_hr), linetype = "dashed", color = "blue")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = punto_corte_hr), linetype = "dashed", color = "orange")+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = raremax_b), linetype = "longdash", color = "red")+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = punto_quiebre_b), linetype = "dashed", color = "green")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = punto_saturacion_b), linetype = "dashed", color = "blue")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = punto_corte_b), linetype = "dashed", color = "orange")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Bajo número de lecturas'), aes(xintercept = raremax_lr), linetype = "dashed", color = "red")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Bajo número de lecturas'), aes(xintercept = punto_quiebre_lr), linetype = "dashed", color = "green")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Bajo número de lecturas'), aes(xintercept = punto_saturacion_lr), linetype = "dashed", color = "blue")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Bajo número de lecturas'), aes(xintercept = punto_corte_lr), linetype = "dashed", color = "orange")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = raremax_u), linetype = "longdash", color = "red") +geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = punto_quiebre_u), linetype = "dashed", color = "green")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = punto_saturacion_u), linetype = "dashed", color = "blue")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = punto_corte_u), linetype = "dashed", color = "orange")+facet_wrap(~Escenario, scales = "free")+ theme(legend.position = "bottom") + xlab("Nº de lecturas") + ylab("Especies")+theme(legend.position = "bottom",            legend.text = element_text(size = 7)) + guides(color = guide_legend(ncol = 7))+  theme ( text = element_text(size = 12, family = "Arial"), axis.title = element_text(size = 12, family = "Arial"),
+          axis.text = element_text(size = 9, family = "Arial"),
+          title = element_text(size = 14, family = "Arial", face = "bold"),
+          legend.title = element_text(size = 11, family = "Arial"),legend.text = element_text(size = 9, family = "Arial"))
+
+ggsave ("curvas_puntos.png", plot = curvas_seg,path="./figuras", width = 12, height = 10, dpi = 300)
+```
+
+```{r}
+#Gráficas de curas de rarefacción con todos los puntos de corte
+curvas_seg<-ggplot(datos_comb_Seg, aes(x = Sample, y = Species, group = Site, color = Site))+labs(color = "Muestras") + geom_line()+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = raremax_hr), linetype = "dashed", color = "red")+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = punto_quiebre_hr), linetype = "dashed", color = "green")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = punto_saturacion_hr), linetype = "dashed", color = "blue")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = punto_corte_hr), linetype = "dashed", color = "orange")+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = raremax_b), linetype = "longdash", color = "red")+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = punto_quiebre_b), linetype = "dashed", color = "green")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = punto_saturacion_b), linetype = "dashed", color = "blue")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = punto_corte_b), linetype = "dashed", color = "orange")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = raremax_u), linetype = "longdash", color = "red") +geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = punto_quiebre_u), linetype = "dashed", color = "green")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = punto_saturacion_u), linetype = "dashed", color = "blue")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = punto_corte_u), linetype = "dashed", color = "orange")+facet_wrap(~Escenario, scales = "free")+ theme(legend.position = "bottom") + xlab("Nº de lecturas") + ylab("Especies")+theme(legend.position = "bottom",legend.text = element_text(size = 12, family = "Arial")) + guides(color = guide_legend(ncol = 9),legend.title = element_text(size = 16, family = "Arial"))+  theme ( text = element_text(size = 14, family = "Arial"), axis.title = element_text(size = 16, family = "Arial"), axis.text = element_text(size = 16, family = "Arial"), title = element_text(size = 16, family = "Arial", face = "bold"),  strip.text.x = element_text(size = 14, family = "Arial", face="bold"))
+ggsave ("curvas_puntos.png", plot = curvas_seg,path="./figuras", width = 20, height = 10, dpi = 300)
+
+```
+
+
+```{r}
+#No rarefactados
+#Se calculan los índices de "Shannon", "Inversa de Simpson" y "Observed"
+#Se añaden las variables Datos, Punto y Escenario
+#Alto número de lecturas
+
+div_hr<-estimate_richness(phyloseq_hr, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_hr$Datos<-"Originales"
+div_hr$Escenario<-"Alto numero de lecturas"
+div_hr$Punto<-"Segmentado"
+
+#Bajo número de lecturas
+div_lr<-estimate_richness(phyloseq_lr, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_lr$Datos<-"Originales"
+div_lr$Escenario<-"Bajo numero de lecturas"
+div_lr$Punto<-"Segmentado"
+
+#Balanceado
+div_b<-estimate_richness(phyloseq_b, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_b$Datos<-"Originales"
+div_b$Escenario<-"Balanceado"
+div_b$Punto<-"Segmentado"
+
+#Desigual
+div_u<-estimate_richness(phyloseq_u, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_u$Datos<-"Originales"
+div_u$Escenario<-"Desigual"
+div_u$Punto<-"Segmentado"
+```
+
+
+
+```{r}
+
+#Rarefacción
+#Alto número de lecturas
+div_hr_rseg<-estimate_richness(rarefied_hr_seg, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_hr_rseg$Datos<-"Rarefactados"
+div_hr_rseg$Punto<-"Segmentado"
+div_hr_rseg$Escenario<-"Alto numero de lecturas"
+div_HRseg<-rbind(div_hr_rseg, div_hr)
+
+#Bajo número de lecturas
+div_lr_rseg<-estimate_richness(rarefied_lr_seg, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_lr_rseg$Datos<-"Rarefactados"
+div_lr_rseg$Punto<-"Segmentado"
+div_lr_rseg$Escenario<-"Bajo numero de lecturas"
+#Se seleccionan las muestras comunes, las retenidas
+nombres_muestras_originales <- rownames(div_lr)
+nombres_muestras_rarefactados <- rownames(div_lr_rseg)
+muestras_comunes <- intersect(nombres_muestras_originales, nombres_muestras_rarefactados)
+div_lr <- div_lr[muestras_comunes, ]
+div_lr_rseg <- div_lr_rseg[muestras_comunes, ]
+div_LRseg<-rbind(div_lr_rseg, div_lr)
+
+#Balanceado
+div_b_rseg<-estimate_richness(rarefied_b_seg, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_b_rseg$Datos<-"Rarefactados"
+div_b_rseg$Punto<-"Segmentado"
+div_b_rseg$Escenario<-"Balanceado"
+div_Bseg<-rbind(div_b_rseg, div_b)
+
+#Desigual
+div_u_rseg<-estimate_richness(rarefied_u_seg, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_u_rseg$Datos<-"Rarefactados"
+div_u_rseg$Punto<-"Segmentado"
+div_u_rseg$Escenario<-"Desigual"
+div_Useg<-rbind(div_u_rseg, div_u)
+
+Div_seg<-rbind(div_Useg,div_HRseg,div_Bseg)
+
+write.csv(Div_seg, file = "Diversidad_segmetado.csv", row.names = FALSE)
+```
+
+```{r}
+#Se cargan los datos de diversidad de los tres métodos de punto de corte y se unen en el mismo conjunto de datos
+library(readr)
+Diversidad_derivada <- read_csv("Diversidad_derivada.csv")
+Diversidad_segmetado <- read_csv("Diversidad_segmetado.csv")
+Diversidad_logistico <- read_csv("Diversidad_logistico.csv")
+
+Diversidad<-rbind(Diversidad_derivada,Diversidad_segmetado,Diversidad_logistico)
+```
+Se dibujan los diagramas de cajas comparando los distintos puntos, mostrando los cuatro escenarios
+
+```{r}
+#Diagrama de cajas del índice de la inversa de Simpson
+div_puntos<-ggplot(Diversidad, aes(x=Punto, y=InvSimpson, fill=Datos)) +
+geom_boxplot() +labs( x="Escenario",y="Índice de Inversa de Simpson") +facet_wrap(~Escenario, scales = "free")+
+  scale_fill_brewer(palette="Accent") +theme ( text = element_text(size = 10, family = "Arial"), axis.title = element_text(size = 12, family = "Arial"),  axis.text = element_text(size = 10, family = "Arial"),
+title = element_text(size = 12, family = "Arial", face = "bold"),
+legend.title = element_text(size = 12, family = "Arial"),legend.text = element_text(size = 10, family = "Arial"))+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggsave ("div_puntos.png", plot = div_puntos,path="./figuras", width = 10, height = 5, dpi = 300)
+```
+
+
+
+```{r}
+#Gráfica diagrama de cajas índice de Shannon
+div_puntoss<-ggplot(Diversidad, aes(x=Punto, y=Shannon, fill=Datos)) +
+  geom_boxplot() +
+   labs(x="Escenario",
+        y="Índice de Shannon") +
+  scale_fill_brewer(palette="Set3") +facet_wrap(~Escenario, scales = "free")+theme ( text = element_text(size = 10, family = "Arial"), axis.title = element_text(size = 12, family = "Arial"),          axis.text = element_text(size = 10, family = "Arial"),
+          title = element_text(size = 12, family = "Arial", face = "bold"),
+           legend.title = element_text(size = 12, family = "Arial"),legend.text = element_text(size = 10, family = "Arial"))+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ ggsave ("div_puntoss.png", plot = div_puntoss,path="./figuras", width = 10, height = 5, dpi = 300)
+ 
+ 
+```
+
+
+```{r}
+ #Gráfica diagrama de cajas índice de especies observadas
+div_punto<-ggplot(Diversidad, aes(x=Punto, y=Observed, fill=Datos)) +
+  geom_boxplot() +labs( x="Escenario",  y="Índice de Especies Observadas") + scale_fill_brewer(palette="Set2")+facet_wrap(~Escenario, scales = "free") +theme ( text = element_text(size = 10, family = "Arial"), axis.title = element_text(size = 12, family = "Arial"),          axis.text = element_text(size = 10, family = "Arial"), title = element_text(size = 12, family = "Arial", face = "bold"),legend.title = element_text(size = 12, family = "Arial"),legend.text = element_text(size = 10, family = "Arial"))+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave ("div_punto.png", plot = div_punto,path="./figuras", width = 10, height = 5, dpi = 300)
+```
+
+
+Se calcula la diferencia estadística en cada uno de los índices de diversidad entre los datos pre- y post rarefacción
+
+```{r message=FALSE, warning=FALSE}
+#Significancia estadística del índice de Shannon
+sh_Bseg<-wilcox.test(div_Bseg$Shannon~div_Bseg$Datos, paired=TRUE)
+sh_Bseg$p.value
+sh_hrseg<-wilcox.test(div_HRseg$Shannon~div_HRseg$Datos, paired=TRUE)
+sh_hrseg$p.value
+sh_lrseg<-wilcox.test(div_LRseg$Shannon~div_LRseg$Datos, paired=TRUE)
+sh_lrseg$p.value
+sh_useg<-wilcox.test(div_Useg$Shannon~div_Useg$Datos, paired=TRUE)
+sh_useg$p.value
+```
+
+```{r message=FALSE, warning=FALSE}
+#Significancia estadística iNVERSA DE sIMPSON
+iv_Bseg<-wilcox.test(div_Bseg$InvSimpson~div_Bseg$Datos, paired=TRUE)
+iv_Bseg$p.value
+iv_hrseg<-wilcox.test(div_HRseg$InvSimpson~div_HRseg$Datos, paired=TRUE)
+iv_hrseg$p.value
+iv_lrseg<-wilcox.test(div_LRseg$InvSimpson~div_LRseg$Datos, paired=TRUE)
+iv_lrseg$p.value
+iv_useg<-wilcox.test(div_Useg$InvSimpson~div_Useg$Datos, paired=TRUE)
+iv_useg$p.value
+```
+
+```{r message=FALSE, warning=FALSE}
+#Significancia estadística Observed
+Ob_Bseg<-wilcox.test(div_Bseg$Observed~div_Bseg$Datos, paired=TRUE)
+Ob_Bseg$p.value
+Ob_hrseg<-wilcox.test(div_HRseg$Observed~div_HRseg$Datos, paired=TRUE)
+Ob_hrseg$p.value
+Ob_lrseg<-wilcox.test(div_LRseg$Observed~div_LRseg$Datos, paired=TRUE)
+Ob_lrseg$p.value
+Ob_useg<-wilcox.test(div_Useg$Observed~div_Useg$Datos, paired=TRUE)
+Ob_useg$p.value
+```
+
+Para evaluar la calidad del método se calcula el porcentaje de muestras retenidas en cada uno de los escenarios:
+Porcentaje de muestras retenidas
+```{r}
+#Alto número de lecturas
+numero_muestras_antes <- ncol(otu_table(phyloseq_hr))  # Siendo las muestras son columnas
+numero_muestras_despues <- ncol(otu_table(rarefied_hr_seg)) # Siendo las muestras son columnas
+porcentaje_retenido <- (numero_muestras_despues / numero_muestras_antes) * 100 #Se calcula el % de muestras retenidas
+porcentaje_retenido
+```
+```{r}
+#Bajo número de lecturas
+numero_muestras_antesLR <- ncol(otu_table(phyloseq_lr))  # Siendo las muestras son columnas
+numero_muestras_despuesLR <- ncol(otu_table(rarefied_lr_seg))# Siendo las muestras son columnas
+porcentaje_retenidoLR <- (numero_muestras_despuesLR / numero_muestras_antesLR) * 100 #Se calcula el % de muestras retenidas
+porcentaje_retenidoLR
+```
+```{r}
+#Balanceado
+numero_muestras_antesB <- ncol(otu_table(phyloseq_b))  # Siendo las muestras son columnas
+numero_muestras_despuesB <- ncol(otu_table(rarefied_b_seg))# Siendo las muestras son columnas
+porcentaje_retenidoB <- (numero_muestras_despuesB / numero_muestras_antesB)*100 #Se calcula el % de muestras retenidas
+porcentaje_retenidoB
+```
+```{r}
+#Desigual
+numero_muestras_antesU <- ncol(otu_table(phyloseq_u))  # Siendo las muestras son columnas
+numero_muestras_despuesU <- ncol(otu_table(rarefied_u_seg))# Siendo las muestras son columnas
+porcentaje_retenidoU <- (numero_muestras_despuesU / numero_muestras_antesU)*100 #Se calcula el % de muestras retenidas
+porcentaje_retenidoU
+```
+Se calcula el porcentaje de lecturas empleadas por muestra para evaluar el método:
+
+```{r}
+#Bajo número de lecturas
+reads_por_muestra_antesLR <- colSums(otu_table(phyloseq_lr)) #Se suman los reads por muestras antes
+reads_por_muestra_despuesLR <- colSums(otu_table(rarefied_lr_seg)) #Se suman los reads por muestras despues
+nombres_comunesLR <- intersect(names(reads_por_muestra_antesLR), names(reads_por_muestra_despuesLR)) #Obtener muestras comunes
+porcentaje_reads_por_muestraLR <- (reads_por_muestra_despuesLR[nombres_comunesLR] / reads_por_muestra_antesLR[nombres_comunesLR]) * 100 #Se calcula el % de reads empleados por muestras
+porcentaje_reads_por_muestraLR
+#Se calculan estasísticos básicos 
+summary(porcentaje_reads_por_muestraLR)
+sd(porcentaje_reads_por_muestraLR)
+```
+
+
+
+``````{r}
+#Balanceado
+reads_por_muestra_antesB <- colSums(otu_table(phyloseq_b)) #Se suman los reads por muestras antes
+reads_por_muestra_despuesB <- colSums(otu_table(rarefied_b_seg)) #Se suman los reads por muestras despues
+nombres_comunesB <- intersect(names(reads_por_muestra_antesB), names(reads_por_muestra_despuesB)) #Obtener muestras comunes
+porcentaje_reads_por_muestraB <- (reads_por_muestra_despuesB[nombres_comunesB] / reads_por_muestra_antesB[nombres_comunesB]) * 100 #Se calcula el % de reads empleados por muestras
+porcentaje_reads_por_muestraB
+#Se calculan estasísticos básicos 
+summary(porcentaje_reads_por_muestraB)
+sd(porcentaje_reads_por_muestraB)
+```
+```{r}
+#Desigual
+reads_por_muestra_antesU <- colSums(otu_table(phyloseq_u)) #Se suman los reads por muestras antes
+reads_por_muestra_despuesU <- colSums(otu_table(rarefied_u_seg)) #Se suman los reads por muestras despues
+nombres_comunesU <- intersect(names(reads_por_muestra_antesU), names(reads_por_muestra_despuesU)) #Obtener muestras comunes
+porcentaje_reads_por_muestraU <- (reads_por_muestra_despuesU[nombres_comunesU] / reads_por_muestra_antesU[nombres_comunesU]) * 100 #Se calcula el % de reads empleados por muestras
+porcentaje_reads_por_muestraU
+#Se calculan estasísticos básicos 
+summary(porcentaje_reads_por_muestraU)
+sd(porcentaje_reads_por_muestraU)
+```
+```{r}
+#Alto número de lecturas
+reads_por_muestra_antesHR <- colSums(otu_table(phyloseq_hr)) #Se suman los reads por muestras antes
+reads_por_muestra_despuesHR <- colSums(otu_table(rarefied_hr_seg)) #Se suman los reads por muestras despues
+nombres_comunesHR <- intersect(names(reads_por_muestra_antesHR), names(reads_por_muestra_despuesHR)) #Obtener muestras comunes
+porcentaje_reads_por_muestraHR <- (reads_por_muestra_despuesHR[nombres_comunesHR] / reads_por_muestra_antesHR[nombres_comunesHR]) * 100 #Se calcula el % de reads empleados por muestras
+porcentaje_reads_por_muestraHR
+#Se calculan estasísticos básicos 
+summary(porcentaje_reads_por_muestraHR)
+sd(porcentaje_reads_por_muestraHR)
+```

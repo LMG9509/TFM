@@ -1,0 +1,320 @@
+---
+title: "Log"
+author: "Lorena Martínez García"
+date: '2023-12-30'
+output: html_document
+---
+Script de R markdown proponiendo el método logístico para seleccionar el punto de corte y su evaluación:
+
+```{r}
+#Se cargan las librerías
+library(phyloseq)
+library(vegan)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(minpack.lm)
+```
+
+El método parte de la curva de rarefacción acumulada, para ello hay que partir del objeto phyloseq:
+
+```{r}
+#Se cargan los objetos phyloseq
+phyloseq_u <- readRDS("E:/TFM/dada2_phyloseq_u.rds")
+phyloseq_hr <- readRDS("E:/TFM/dada2_phyloseq_hr.rds")
+phyloseq_lr <- readRDS("E:/TFM/dada2_phyloseq_lr.rds")
+phyloseq_b <- readRDS("E:/TFM/dada2_phyloseq_b.rds")
+```
+
+
+Se crea la función que genere la curva de rarefacción acumulada:
+
+```{r}
+#Función para generar la curva acumulada
+
+generar_curva_acumulada <- function(phyloseq_obj) {
+  # Extraer la tabla OTU del objeto phyloseq
+  datos_otu <-as.data.frame(otu_table(phyloseq_obj))
+  
+  # Generar datos de rarefacción con rarecurve, argumento tidy para extraer dataframe con los datos de la curva
+  datos_curva <- rarecurve(t(datos_otu), tidy = TRUE)
+  
+  # Calcular la curva acumulada, riqueza de especies acumulada por muestra
+  curva_acumulada <- datos_curva %>%
+    group_by(Sample) %>%
+    summarize(RiquezaAcumulada = sum(Species, na.rm = TRUE))
+  
+  return(curva_acumulada)
+}
+```
+
+```{r}
+#Se generan las curvas acumuladas
+curva_ac_lr <- generar_curva_acumulada(phyloseq_lr)
+curva_ac_hr <- generar_curva_acumulada(phyloseq_hr)
+curva_ac_b <- generar_curva_acumulada(phyloseq_b)
+curva_ac_u <- generar_curva_acumulada(phyloseq_u)
+```
+
+
+```{r}
+estimar_pc_logistico <- function(curva_agregada) {
+  #Calcula 
+   L_inicial <- max(curva_agregada$RiquezaAcumulada)
+  # Calcula las pendientes iniciales
+  pendientes <- diff(curva_agregada$RiquezaAcumulada) / diff(curva_agregada$Sample)
+  pendiente_promedio <- mean(pendientes[1:5])  # Promedio de las primeras 5 pendientes
+  
+  # Se ajusta  k basado en la pendiente promedio
+  k_inicial <- pendiente_promedio / L_inicial
+  #Se ajusta x0
+  x0_inicial <- median(curva_agregada$Sample) 
+  # Ajustar un modelo logístico
+  modelo_logistico <- nlsLM(RiquezaAcumulada ~ L/(1 + exp(-k * (Sample - x0))),
+                            start = list(L = L_inicial, k = k_inicial, x0 = x0_inicial),
+                            data = curva_agregada)
+  
+  # Se estima el punto de saturación (0.95)
+  L_estimada <- coef(modelo_logistico)["L"]
+  umbral_saturacion <- 0.95 * L_estimada
+  punto_saturacion <- (log((L_estimada/umbral_saturacion) - 1) / -coef(modelo_logistico)["k"]) + coef(modelo_logistico)["x0"]
+
+  return(punto_saturacion)
+}
+```
+
+```{r}
+#Se calcula el punto de saturación
+punto_saturacion_hr<-estimar_pc_logistico(curva_ac_hr)
+punto_saturacion_lr<-estimar_pc_logistico(curva_ac_lr)
+punto_saturacion_b<-estimar_pc_logistico(curva_ac_b)
+punto_saturacion_u<-estimar_pc_logistico(curva_ac_u)
+```
+
+
+```{r}
+#Rarefacción sin reemplazo
+set.seed(123)
+rarefied_hrlog<-rarefy_even_depth(phyloseq_hr, sample.size=punto_saturacion_hr, replace = FALSE, rngseed=123)
+rarefied_blog<-rarefy_even_depth(phyloseq_b, sample.size=punto_saturacion_b,replace = FALSE, rngseed=123)
+rarefied_lrlog<-rarefy_even_depth(phyloseq_lr, sample.size=punto_saturacion_lr, replace = FALSE,rngseed=123)
+rarefied_ulog<-rarefy_even_depth(phyloseq_u, sample.size=punto_saturacion_u,replace = FALSE, rngseed=123)
+```
+Se calculan los índices de diversidad para pre- y post- rarefacción, realizando la comparación entre las muestras retenidas:
+
+#No rarefactados
+```{r}
+#Se calculan los índices de "Shannon", "Inversa de Simpson" y "Observed"
+#Se añaden las variables Datos, Punto y Escenario
+#No rarefactados
+#Alto número de lecturas
+div_hr<-estimate_richness(phyloseq_hr, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_hr$Datos<-"Originales"
+div_hr$Escenario<-"Alto numero de lecturas"
+div_hr$Punto<-"Logistico"
+#Bajo número de lecturas
+div_lr<-estimate_richness(phyloseq_lr, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_lr$Datos<-"Originales"
+div_lr$Escenario<-"Bajo numero de lecturas"
+div_lr$Punto<-"Logistico"
+#Balanceado
+div_b<-estimate_richness(phyloseq_b, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_b$Datos<-"Originales"
+div_b$Escenario<-"Balanceado"
+div_b$Punto<-"Logistico"
+div_u<-estimate_richness(phyloseq_u, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_u$Datos<-"Originales"
+div_u$Escenario<-"Desigual"
+div_u$Punto<-"Logistico"
+```
+
+
+```{r}
+#Se calculan los índices de "Shannon", "Inversa de Simpson" y "Observed"
+#Se añaden las variables Datos, Punto y Escenario
+#Rarefacción
+#Alto número de lecturas
+div_hr_rlog<-estimate_richness(rarefied_hrlog, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_hr_rlog$Datos<-"Rarefactados"
+div_hr_rlog$Punto<-"Logistico"
+div_hr_rlog$Escenario<-"Alto numero de lecturas"
+
+#Se seleccionan las muestras comunes, las retenidas
+nombres_muestras_originaleslhr <- rownames(div_hr)
+nombres_muestras_rarefactadoslhr <- rownames(div_hr_rlog)
+muestras_comuneslhr <- intersect(nombres_muestras_originaleslhr, nombres_muestras_rarefactadoslhr)
+div_hr <- div_hr[muestras_comuneslhr, ]
+div_hr_rlog <- div_hr_rlog[muestras_comuneslhr, ]
+#Se guardan lo datos en un único dataframe del alto número de lecturas
+div_HRlog<-rbind(div_hr_rlog, div_hr)
+#Bajo número de lecturas
+div_lr_rlog<-estimate_richness(rarefied_lrlog, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_lr_rlog$Datos<-"Rarefactados"
+div_lr_rlog$Punto<-"Logistico"
+div_lr_rlog$Escenario<-"Bajo numero de lecturas"
+
+#Se seleccionan las muestras comunes, las retenidas
+nombres_muestras_originalesllr <- rownames(div_lr)
+nombres_muestras_rarefactadosllr <- rownames(div_lr_rlog)
+muestras_comunesllr <- intersect(nombres_muestras_originalesllr, nombres_muestras_rarefactadosllr)
+div_lr <- div_lr[muestras_comunesllr, ]
+div_lr_rlog <- div_lr_rlog[muestras_comunesllr, ]
+#Se guardan lo datos en un único dataframe del bajo número de lecturas
+div_LRlog<-rbind(div_lr_rlog, div_lr)
+
+#Balanceado
+div_b_rlog<-estimate_richness(rarefied_blog, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_b_rlog$Datos<-"Rarefactados"
+div_b_rlog$Punto<-"Logistico"
+div_b_rlog$Escenario<-"Balanceado"
+
+#Se seleccionan las muestras comunes, las retenidas
+nombres_muestras_originaleslb <- rownames(div_b)
+nombres_muestras_rarefactadoslb <- rownames(div_b_rlog)
+muestras_comuneslb <- intersect(nombres_muestras_originaleslb, nombres_muestras_rarefactadoslb)
+div_b <- div_b[muestras_comuneslb, ]
+div_b_rlog <- div_b_rlog[muestras_comuneslb, ]
+div_Blog<-rbind(div_b_rlog, div_b)#Se guardan lo datos en un único dataframe del balanceado
+
+#Desigual
+div_u_rlog<-estimate_richness(rarefied_ulog, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_u_rlog$Datos<-"Rarefactados"
+div_u_rlog$Punto<-"Logistico"
+div_u_rlog$Escenario<-"Desigual"
+#Se seleccionan las muestras comunes, las retenidas
+nombres_muestras_originaleslu <- rownames(div_u)
+nombres_muestras_rarefactadoslu <- rownames(div_u_rlog)
+muestras_comuneslu <- intersect(nombres_muestras_originaleslu, nombres_muestras_rarefactadoslu)
+div_u <- div_u[muestras_comuneslu, ]
+div_u_rlog <- div_u_rlog[muestras_comuneslu, ]
+div_Ulog<-rbind(div_u_rlog, div_u)#Se guardan lo datos en un único dataframe del desigual
+
+Div_log<-rbind(div_Ulog,div_HRlog,div_Blog) #Se crea un dataframe conjunto
+
+write.csv(Div_log, file = "Diversidad_logistico.csv", row.names = FALSE) #Se exporta el dataframe de diversidad a formato .csv
+```
+
+Se calcula la significación estadística mediante el test de Wilcoxon para cada escenario:
+
+```{r message=FALSE, warning=FALSE}
+#Significancia estadística ínversa de simpson
+iv_Blog<-wilcox.test(div_Blog$InvSimpson~div_Blog$Datos, paired=TRUE)
+iv_Blog$p.value
+iv_hrlog<-wilcox.test(div_HRlog$InvSimpson~div_HRlog$Datos, paired=TRUE)
+iv_hrlog$p.value
+iv_lrlog<-wilcox.test(div_LRlog$InvSimpson~div_LRlog$Datos, paired=TRUE)
+iv_lrlog$p.value
+iv_ulog<-wilcox.test(div_Ulog$InvSimpson~div_Ulog$Datos, paired=TRUE)
+iv_ulog$p.value
+```
+
+```{r message=FALSE, warning=FALSE}
+#Significancia estadística indice de especies observadas
+Ob_Blog<-wilcox.test(div_Blog$Observed~div_Blog$Datos, paired=TRUE)
+Ob_Blog$p.value
+Ob_hrlog<-wilcox.test(div_HRlog$Observed~div_HRlog$Datos, paired=TRUE)
+Ob_hrlog$p.value
+Ob_lrlog<-wilcox.test(div_LRlog$Observed~div_LRlog$Datos, paired=TRUE)
+Ob_lrlog$p.value
+Ob_ulog<-wilcox.test(div_Ulog$Observed~div_Ulog$Datos, paired=TRUE)
+Ob_ulog$p.value
+```
+
+```{r message=FALSE, warning=FALSE}
+#Significancia estadística  de índice de Shannon
+
+sh_Blog<-wilcox.test(div_Blog$Shannon~div_Blog$Datos, paired=TRUE)
+sh_Blog$p.value
+sh_hrlog<-wilcox.test(div_HRlog$Shannon~div_HRlog$Datos, paired=TRUE)
+sh_hrlog$p.value
+sh_lrlog<-wilcox.test(div_LRlog$Shannon~div_LRlog$Datos, paired=TRUE)
+sh_lrlog$p.value
+sh_ulog<-wilcox.test(div_Ulog$Shannon~div_Ulog$Datos, paired=TRUE)
+sh_ulog$p.value
+```
+
+Para evaluar la calidad del método se calcula el porcentaje de muestras retenidas en cada uno de los escenarios:
+
+```{r}
+#Alto número de lecturas
+ln_muestras_antes <- ncol(otu_table(phyloseq_hr)) #Siendo las muestras columnas
+ln_muestras_despues <- ncol(otu_table(rarefied_hrlog))#Siendo las muestras columnas
+lpor_retenido <- (ln_muestras_despues / ln_muestras_antes) * 100 #Se calcula el % de muestras retenidas
+lpor_retenido
+```
+
+
+```{r}
+#Bajo número de lecturas
+lnumero_muestras_antesLR <- ncol(otu_table(phyloseq_lr)) #Siendo las muestras columnas
+lnumero_muestras_despuesLR <- ncol(otu_table(rarefied_lrlog)) #Siendo las muestras columnas
+lporcentaje_retenidoLR <- (lnumero_muestras_despuesLR / lnumero_muestras_antesLR) * 100#Se calcula el % de muestras retenidas
+lporcentaje_retenidoLR
+```
+```{r}
+#Balanceado
+lnumero_muestras_antesB <- ncol(otu_table(phyloseq_b))  #Siendo las muestras columnas
+lnumero_muestras_despuesB <- ncol(otu_table(rarefied_blog)) #Siendo las muestras columnas
+lporcentaje_retenidoB <- (lnumero_muestras_despuesB / lnumero_muestras_antesB)*100#Se calcula el % de muestras retenidas
+lporcentaje_retenidoB
+```
+```{r}
+#Desigual
+lnumero_muestras_antesU <- ncol(otu_table(phyloseq_u))  #Siendo las muestras columnas
+lnumero_muestras_despuesU <- ncol(otu_table(rarefied_ulog)) #Siendo las muestras columnas
+lporcentaje_retenidoU <- (lnumero_muestras_despuesU / lnumero_muestras_antesU)*100 #Se calcula el % de muestras retenidas
+lporcentaje_retenidoU
+```
+
+
+Se calcula el porcentaje de lecturas empleadas por muestra para evaluar el método:
+
+```{r}
+#Bajo número de lecturas
+lreads_por_muestra_antesLR <- colSums(otu_table(phyloseq_lr)) #Se suman los reads por muestras antes
+lreads_por_muestra_despuesLR <- colSums(otu_table(rarefied_lrlog))#Se suman los reads por muestras después
+lnombres_comunesLR <- intersect(names(lreads_por_muestra_antesLR), names(lreads_por_muestra_despuesLR)) #Obtener muestras comunes
+lporcentaje_reads_por_muestraLR <- (lreads_por_muestra_despuesLR[lnombres_comunesLR] / lreads_por_muestra_antesLR[lnombres_comunesLR] ) * 100 #Se calcula el % de reads empleados por muestras
+lporcentaje_reads_por_muestraLR
+#Se calculan estasísticos básicos 
+summary(lporcentaje_reads_por_muestraLR)
+sd(lporcentaje_reads_por_muestraLR)
+```
+
+
+```{r}
+#Bajo número de lecturas
+lreads_por_muestra_antesB <- colSums(otu_table(phyloseq_b))#Se suman los reads por muestras antes
+lreads_por_muestra_despuesB <- colSums(otu_table(rarefied_blog)) #Se suman los reads por muestras después
+lnombres_comunesB <- intersect(names(lreads_por_muestra_antesB), names(lreads_por_muestra_despuesB))#Obtener muestras comunes
+lporcentaje_reads_por_muestraB <- (lreads_por_muestra_despuesB[lnombres_comunesB] / lreads_por_muestra_antesB[lnombres_comunesB]) * 100 #Se calcula el % de reads empleados por muestras
+lporcentaje_reads_por_muestraB
+#Se calculan estasísticos básicos 
+summary(lporcentaje_reads_por_muestraB)
+sd(lporcentaje_reads_por_muestraB)
+```
+
+```{r}
+#Desigual
+lreads_por_muestra_antesU <- colSums(otu_table(phyloseq_u))#Se suman los reads por muestras antes
+lreads_por_muestra_despuesU <- colSums(otu_table(rarefied_ulog))#Se suman los reads por muestras después
+lnombres_comunesU <- intersect(names(lreads_por_muestra_antesU), names(lreads_por_muestra_despuesU))#Obtener muestras comunes
+lporcentaje_reads_por_muestraU <- (lreads_por_muestra_despuesU[lnombres_comunesU] / lreads_por_muestra_antesU[lnombres_comunesU]) * 100 #Se calcula el % de reads empleados por muestras
+lporcentaje_reads_por_muestraU
+#Se calculan estasísticos básicos 
+summary(lporcentaje_reads_por_muestraU)
+sd(lporcentaje_reads_por_muestraU)
+```
+
+```{r}
+#Alto número de lecturas 
+lreads_por_muestra_antesHR <- colSums(otu_table(phyloseq_hr))#Se suman los reads por muestras antes
+lreads_por_muestra_despuesHR <- colSums(otu_table(rarefied_hrlog))#Se suman los reads por muestras después
+lnombres_comunesHR <- intersect(names(lreads_por_muestra_antesHR), names(lreads_por_muestra_despuesHR)) #Obtener muestras comunes
+lporcentaje_reads_por_muestraHR <- (lreads_por_muestra_despuesHR[lnombres_comunesHR] / lreads_por_muestra_antesHR[lnombres_comunesHR]) * 100 #Se calcula el % de reads empleados por muestras
+lporcentaje_reads_por_muestraHR
+#Se calculan estasísticos básicos 
+summary(lporcentaje_reads_por_muestraHR)
+sd(lporcentaje_reads_por_muestraHR)
+```
+

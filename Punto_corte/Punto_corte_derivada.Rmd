@@ -1,45 +1,287 @@
 ---
 title: "Derivada"
 author: "Lorena Martínez García"
-date: "`r Sys.Date()`"
+date: '2023-12-30'
 output: html_document
+
+
 ---
 
+```{r}
+#Se cargan las librerias:
 
-```{r setup, include=FALSE}
 library(phyloseq)
 library(vegan)
+library(ggplot2)
+library(tidyverse)
 library(dplyr)
 ```
 
 
-```{r}
-#Se parte de un objeto phyloseq, se extrae la otu table
-datos_otu<-as.data.frame(otu_table(phyloseq_object_lr))
 
+```{r}
+phyloseq_u <- readRDS("E:/TFM/dada2_phyloseq_u.rds")
+phyloseq_hr <- readRDS("E:/TFM/dada2_phyloseq_hr.rds")
+phyloseq_lr <- readRDS("E:/TFM/dada2_phyloseq_lr.rds")
+phyloseq_b <- readRDS("E:/TFM/dada2_phyloseq_b.rds")
 ```
 
 ```{r}
-# Generar datos de rarefacción con rarecurve
-datos_curva <- rarecurve(t(datos_otu), step = 50, tidy = TRUE)
+#Función para generar la curva acumulada
 
-# Calcular la curva promedio
-curva_promedio <- datos_curva %>%
+generar_curva_acumulada <- function(phyloseq_obj) {
+  # Extraer la tabla OTU del objeto phyloseq
+  datos_otu <-as.data.frame(otu_table(phyloseq_obj))
+  
+  # Generar datos de rarefacción con rarecurve
+  datos_curva <- rarecurve(t(datos_otu), tidy = TRUE)
+  
+  # Calcular la curva promedio
+  curva_acumulada <- datos_curva %>%
     group_by(Sample) %>%
-    summarize(RiquezaMedia = mean(Species))
+    summarize(RiquezaAcumulada = sum(Species, na.rm = TRUE))
+  
+  return(curva_acumulada)
+}
+```
 
-# Graficar la curva promedio
-plot(curva_promedio$Sample, curva_promedio$RiquezaMedia, type = "l", xlab = "Tamaño de la Muestra", ylab = "Riqueza de Especies Promedio")
+
+```{r}
+#Se generan las curvas acumuladas
+curva_ac_lr <- generar_curva_acumulada(phyloseq_lr)
+curva_ac_hr <- generar_curva_acumulada(phyloseq_hr)
+curva_ac_b <- generar_curva_acumulada(phyloseq_b)
+curva_ac_u <- generar_curva_acumulada(phyloseq_u)
 ```
 
 ```{r}
-# Calculo de la derivada
-  derivada <- diff(curva_promedio$RiquezaMedia)
-# Se normaliza la derivada
-  derivada_normalizada <- derivada / max(derivada_acumulacion)
-  #Umbral de cambio
-  umbral_cambio = 0.01
-  # Punto de corte donde el cambio relativo cae por debajo del umbral
-  punto_corte <- which(derivada_normalizada < umbral_cambio)[1]
+punto_corte_derivada<- function (curva_agregada, umbral=0.01) {
+
+#Cálculo  de la primera derivada
+
+primera_derivada<-diff(curva_agregada$RiquezaAcumulada)
+
+#Se identifica el punto de corte 
+
+punto_corte_p<-which(primera_derivada < umbral)
+if(length(punto_corte_p)> 0){
+punto_corte <-punto_corte_p[1]
+} else {
+punto_corte <-NA  #Si no encuentra punto de corte se devuelve NA
+}
+return(punto_corte)
+}
 ```
 
+
+```{r}
+#Se calcula el punto de corte
+punto_corte_hr<-punto_corte_derivada(curva_ac_hr)
+punto_corte_lr<-punto_corte_derivada(curva_ac_lr)
+punto_corte_u<-punto_corte_derivada(curva_ac_u)
+punto_corte_b<-punto_corte_derivada(curva_ac_b)
+```
+
+```{r}
+#Rarefacción sin remplazo
+set.seed(123)
+rarefied_hr_d<-rarefy_even_depth(phyloseq_hr, sample.size=punto_corte_hr, replace = FALSE, rngseed=123)
+rarefied_b_d<-rarefy_even_depth(phyloseq_b, sample.size=punto_corte_b,replace = FALSE, rngseed=123)
+rarefied_lr_d<-rarefy_even_depth(phyloseq_lr, sample.size=punto_corte_lr, replace = FALSE,rngseed=123)
+rarefied_u_d<-rarefy_even_depth(phyloseq_u, sample.size=punto_corte_u, replace = FALSE, rngseed=123)
+```
+
+
+Se calculan los índices de diversidad para pre- y post- rarefacción, realizando la comparación entre las muestras retenidas:
+
+```{r}
+#Se calculan los índices de "Shannon", "Inversa de Simpson" y "Observed"
+#Se añaden las variables Datos, Punto y Escenario
+#No rarefactados
+#Alto número de lecturas
+div_hr<-estimate_richness(phyloseq_hr, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_hr$Datos<-"Originales"
+div_hr$Escenario<-"Alto numero de lecturas"
+div_hr$Punto<-"Derivada"
+#Bajo número de lecturas
+div_lr<-estimate_richness(phyloseq_lr, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_lr$Datos<-"Originales"
+div_lr$Escenario<-"Bajo numero de lecturas"
+div_lr$Punto<-"Derivada"
+#Balanceado
+div_b<-estimate_richness(phyloseq_b, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_b$Datos<-"Originales"
+div_b$Escenario<-"Balanceado"
+div_b$Punto<-"Derivada"
+#Desigual
+div_u<-estimate_richness(phyloseq_u, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_u$Datos<-"Originales"
+div_u$Escenario<-"Desigual"
+div_u$Punto<-"Derivada"
+```
+
+```{r}
+#Se calculan los índices de "Shannon", "Inversa de Simpson" y "Observed"
+#Se añaden las variables Datos, Punto y Escenario
+#Rarefacción
+#Alto número de lecturas
+div_hr_r_d<-estimate_richness(rarefied_hr_d, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_hr_r_d$Datos<-"Rarefactados"
+div_hr_r_d$Punto<-"Derivada"
+div_hr_r_d$Escenario<-"Alto numero de lecturas"
+div_HR_d<-rbind(div_hr,div_hr_r_d) #Se guardan lo datos en un único dataframe del alto número de lecturas
+
+#Bajo número de lecturas
+div_lr_r_d<-estimate_richness(rarefied_lr_d, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_lr_r_d$Datos<-"Rarefactados"
+div_lr_r_d$Punto<-"Derivada"
+div_lr_r_d$Escenario<-"Bajo numero de lecturas"
+#Se seleccionan las muestras comunes, las retenidas
+nombres_muestras_originalesdlr <- rownames(div_lr)
+nombres_muestras_rarefactadosdlr <- rownames(div_lr_r_d)
+muestras_comunesdlr <- intersect(nombres_muestras_originalesdlr, nombres_muestras_rarefactadosdlr)
+div_lr <- div_lr[muestras_comunesdlr, ]
+div_lr_r_d <- div_lr_r_d[muestras_comunesdlr, ]
+div_LR_d<-rbind(div_lr_r_d, div_lr)#Se guardan lo datos en un único dataframe del bajo número de lecturas
+#Balanceado
+div_b_r_d<-estimate_richness(rarefied_b_d, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_b_r_d$Datos<-"Rarefactados"
+div_b_r_d$Punto<-"Derivada"
+div_b_r_d$Escenario<-"Balanceado"
+div_B_d<-rbind(div_b_r_d, div_b) #Se guardan lo datos en un único dataframe de balanceado
+#Desigual
+div_u_r_d<-estimate_richness(rarefied_u_d, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_u_r_d$Datos<-"Rarefactados"
+div_u_r_d$Punto<-"Derivada"
+div_u_r_d$Escenario<-"Desigual"
+div_U_d<-rbind(div_u_r_d, div_u) #Se guardan lo datos en un único dataframe del desigual
+
+Div_d<-rbind(div_U_d,div_HR_d,div_B_d) #Se crea un dataframe conjunto
+
+write.csv(Div_d, file = "Diversidad_derivada.csv", row.names = FALSE) #Se exporta el dataframe de diversidad a formato .csv
+```
+
+Se calcula la significación estadística mediante el test de Wilcoxon para cada escenario:
+
+```{r message=FALSE, warning=FALSE}
+#Significancia estadística del índice de Shannon
+
+sh_B_d<-wilcox.test(div_B_d$Shannon~div_B_d$Datos, paired=TRUE)
+sh_B_d$p.value
+sh_hr_d<-wilcox.test(div_HR_d$Shannon~div_HR_d$Datos, paired=TRUE)
+sh_hr_d$p.value
+sh_lr_d<-wilcox.test(div_LR_d$Shannon~div_LR_d$Datos, paired=TRUE)
+sh_lr_d$p.value
+sh_u_d<-wilcox.test(div_U_d$Shannon~div_U_d$Datos, paired=TRUE)
+sh_u_d$p.value
+```
+
+```{r message=FALSE, warning=FALSE}
+#Significancia estadística Inversa de Simpson
+iv_B_d<-wilcox.test(div_B_d$InvSimpson~div_B_d$Datos, paired=TRUE)
+iv_B_d$p.value
+iv_hr_d<-wilcox.test(div_HR_d$InvSimpson~div_HR_d$Datos, paired=TRUE)
+iv_hr_d$p.value
+iv_lr_d<-wilcox.test(div_LR_d$InvSimpson~div_LR_d$Datos, paired=TRUE)
+iv_lr_d$p.value
+iv_u_d<-wilcox.test(div_U_d$InvSimpson~div_U_d$Datos, paired=TRUE)
+iv_u_d$p.value
+```
+
+
+```{r message=FALSE, warning=FALSE}
+
+#Significancia estadística del índice de especies observadas
+Ob_B_d<-wilcox.test(div_B_d$Observed~div_B_d$Datos, paired=TRUE)
+Ob_B_d$p.value
+Ob_hr_d<-wilcox.test(div_HR_d$Observed~div_HR_d$Datos, paired=TRUE)
+Ob_hr_d$p.value
+Ob_lr_d<-wilcox.test(div_LR_d$Observed~div_LR_d$Datos, paired=TRUE)
+Ob_lr_d$p.value
+Ob_u_d<-wilcox.test(div_U_d$Observed~div_U_d$Datos, paired=TRUE)
+Ob_u_d$p.value
+```
+
+
+Para evaluar la calidad del método se calcula el porcentaje de muestras retenidas en cada uno de los escenarios:
+```{r}
+#Alto número de lecturas
+Dn_muestras_antes <- ncol(otu_table(phyloseq_hr))  # Siendo las muestras son columnas
+Dn_muestras_despues <- ncol(otu_table(rarefied_hr_d)) # Siendo las muestras son columnas
+Dpor_retenido <- (Dn_muestras_despues / Dn_muestras_antes) * 100
+Dpor_retenido
+```
+
+```{r}
+#Bajo número de lecturas
+Dnumero_muestras_antesLR <- ncol(otu_table(phyloseq_lr))  # Siendo las muestras son columnas
+Dnumero_muestras_despuesLR <- ncol(otu_table(rarefied_lr_d)) # Siendo las muestras son columnas
+Dporcentaje_retenidoLR <- (Dnumero_muestras_despuesLR / Dnumero_muestras_antesLR) * 100 #Se calcula el % de muestras retenidas
+Dporcentaje_retenidoLR
+```
+
+```{r}
+#Balanceado
+Dnumero_muestras_antesB <- ncol(otu_table(phyloseq_b))  # Siendo las muestras son columnas
+Dnumero_muestras_despuesB <- ncol(otu_table(rarefied_b_d)) # Siendo las muestras son columnas
+Dporcentaje_retenidoB <- (Dnumero_muestras_despuesB / Dnumero_muestras_antesB)*100 #Se calcula el % de muestras retenidas
+Dporcentaje_retenidoB
+```
+```{r}
+#Desigual
+Dnumero_muestras_antesU <- ncol(otu_table(phyloseq_u)) # Siendo las muestras son columnas
+Dnumero_muestras_despuesU <- ncol(otu_table(rarefied_u_d))# Siendo las muestras son columnas
+Dporcentaje_retenidoU <- (Dnumero_muestras_despuesU / Dnumero_muestras_antesU)*100 #Se calcula el % de muestras retenidas
+Dporcentaje_retenidoU
+```
+
+
+Se calcula el porcentaje de lecturas empleadas por muestra para evaluar el método:
+```{r}
+#Bajo número de lecturas
+Dreads_por_muestra_antesLR <- colSums(otu_table(phyloseq_lr)) #Se suman los reads por muestras antes
+Dreads_por_muestra_despuesLR <- colSums(otu_table(rarefied_lr_d)) #Se suman los reads por muestras después
+Dnombres_comunesLR <- intersect(names(Dreads_por_muestra_antesLR), names(Dreads_por_muestra_despuesLR)) #Obtener muestras comunes
+Dporcentaje_reads_por_muestraLR <- (Dreads_por_muestra_despuesLR[Dnombres_comunesLR] / Dreads_por_muestra_antesLR[Dnombres_comunesLR]) * 100 #Se calcula el % de reads empleados por muestras
+Dporcentaje_reads_por_muestraLR
+#Se calculan estasísticos básicos 
+summary(Dporcentaje_reads_por_muestraLR)
+sd(Dporcentaje_reads_por_muestraLR)
+```
+
+
+``````{r}
+#Balanceado
+Dreads_por_muestra_antesB <- colSums(otu_table(phyloseq_b))#Se suman los reads por muestras antes
+Dreads_por_muestra_despuesB <- colSums(otu_table(rarefied_b_d))#Se suman los reads por muestras después
+Dnombres_comunesB <- intersect(names(Dreads_por_muestra_antesB), names(Dreads_por_muestra_despuesB)) #Obtener muestras comunes
+Dporcentaje_reads_por_muestraB <- (Dreads_por_muestra_despuesB[Dnombres_comunesB] / Dreads_por_muestra_antesB[Dnombres_comunesB]) * 100 #Se calcula el % de reads empleados por muestras
+Dporcentaje_reads_por_muestraB
+#Se calculan estasísticos básicos 
+summary(Dporcentaje_reads_por_muestraB)
+sd(Dporcentaje_reads_por_muestraB)
+```
+
+```{r}
+#Desigual
+Dreads_por_muestra_antesU <- colSums(otu_table(phyloseq_u))#Se suman los reads por muestras antes
+Dreads_por_muestra_despuesU <- colSums(otu_table(rarefied_u_d))#Se suman los reads por muestras después
+Dnombres_comunesU <- intersect(names(Dreads_por_muestra_antesU), names(Dreads_por_muestra_despuesU)) #Obtener muestras comunes
+Dporcentaje_reads_por_muestraU <- (Dreads_por_muestra_despuesU[Dnombres_comunesU] / Dreads_por_muestra_antesU[Dnombres_comunesU]) * 100#Se calcula el % de reads empleados por muestras
+Dporcentaje_reads_por_muestraU
+#Se calculan estasísticos básicos 
+summary(Dporcentaje_reads_por_muestraU)
+sd(Dporcentaje_reads_por_muestraU)
+```
+
+```{r}
+#Alto número de lecturas
+Dreads_por_muestra_antesHR <- colSums(otu_table(phyloseq_hr))#Se suman los reads por muestras antes
+Dreads_por_muestra_despuesHR <- colSums(otu_table(rarefied_hr_d))#Se suman los reads por muestras después
+Dnombres_comunesHR <- intersect(names(Dreads_por_muestra_antesHR), names(Dreads_por_muestra_despuesHR)) #Obtener muestras comunes
+Dporcentaje_reads_por_muestraHR <- (Dreads_por_muestra_despuesHR[Dnombres_comunesHR] / Dreads_por_muestra_antesHR[Dnombres_comunesHR]) * 100 #Se calcula el % de reads empleados por muestras
+Dporcentaje_reads_por_muestraHR
+#Se calculan estasísticos básicos 
+summary(Dporcentaje_reads_por_muestraHR)
+sd(Dporcentaje_reads_por_muestraHR)
+```
