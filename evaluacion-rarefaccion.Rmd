@@ -1,0 +1,594 @@
+---
+title: "Evaluación_rarefacción"
+author: "Lorena Martínez García"
+date: '2023-12-30'
+output: html_document
+---
+
+Script de R markdown para evaluar el impacto de la rarefacción en distintas profundidades de secuenciación (Objetivo 2):
+
+```{r}
+#Se cargan las librerías necesarias
+
+library(phyloseq)
+library(vegan)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+```
+Se cargan los objetos phyloseq de cada uno de los escenarios de profundidad de secuenciación: Desigual, alto número de lecturas. bajo número de lecturas y balanceado.
+
+```{r}
+#Se cargan los objetos phyloseq
+
+phyloseq_u <- readRDS("E:/TFM/dada2_phyloseq_u.rds")
+phyloseq_hr <- readRDS("E:/TFM/dada2_phyloseq_hr.rds")
+phyloseq_lr <- readRDS("E:/TFM/dada2_phyloseq_lr.rds")
+phyloseq_b <- readRDS("E:/TFM/dada2_phyloseq_b.rds")
+```
+
+
+Para evaluar la rarefacción se toma como punto de corte el mínimo tamaño muestral:
+
+```{r}
+#Punto de corte el tamaño muestral más pequeño
+raremax_hr <-min(sample_sums(phyloseq_hr))
+raremax_b <- min(sample_sums(phyloseq_b))
+raremax_lr <- min(sample_sums(phyloseq_lr))
+raremax_u <- min(sample_sums(phyloseq_u))
+```
+
+Para dibujar las curvas de rarefacción, se extrae la traspuesta de la otu_table de cada objeto phyloseq a un dataframe. Con dicho dataframe se emplea la función rarecurve, para dibujar las curvas de rarefacción
+
+```{r}
+#Alto número de lecturas
+otu_hr<-as.data.frame(t(otu_table(phyloseq_hr)))
+#Se establece el argumento tidy =TRUE para extraer los datos
+rare_hr<-rarecurve(otu_hr, step = 50, sample = raremax_hr,tidy=TRUE)
+#Se añade la variable Escenario 
+rare_hr$Escenario<-"Alto número de lecturas"
+```
+
+```{r}
+#Balanceado
+otu_b<-as.data.frame(t(otu_table(phyloseq_b)))
+#Se establece el argumento tidy =TRUE para extraer los datos
+rare_b<-rarecurve(otu_b,step = 50, sample = raremax_b,tidy=TRUE)
+#Se añade la variable Escenario
+rare_b$Escenario<-"Balanceado"
+```
+
+```{r message=FALSE, warning=FALSE}
+#Bajo número de lecturas
+otu_lr<-as.data.frame(t(otu_table(phyloseq_lr)))
+#Se establece el argumento tidy =TRUE para extraer los datos
+rare_lr<-rarecurve(otu_lr,step = 50, sample = raremax_lr,tidy=TRUE)
+#Se añade la variable Escenario
+rare_lr$Escenario<-"Bajo número de lecturas"
+```
+
+```{r}
+#Desigual
+otu_u<-as.data.frame(t(otu_table(phyloseq_u)))
+#Se establece el argumento tidy =TRUE para extraer los datos
+rare_u<-rarecurve(otu_u,step = 50, sample = raremax_u,tidy=TRUE)
+#Se añade la variable Escenario
+rare_u$Escenario<-"Desigual"
+```
+
+Se combinan todos los dataframes para obtener uno que recoja toda la información
+
+```{r}
+#Se unen todos los dataframes
+datos_comb<-rbind(rare_b,rare_hr,rare_u)
+```
+
+```{r}
+#Datos incluyendo bajo número de lecturas
+datos_com_l<-rbind(rare_b,rare_hr,rare_u,rare_lr)
+```
+
+
+```{r}
+
+#Gráfico de curvas de rarefacción a través del conjunto de datos combinado con los datos de los cuatro escenarios, se añaden los puntos de corte para cada uno de los escenarios
+
+gg_curves<-ggplot(datos_comb, aes(x = Sample, y = Species, group = Site, color = Site)) + geom_line()+ 
+  geom_vline(data = subset(datos_comb, Escenario == 'Alto número de lecturas'), aes(xintercept = raremax_hr), linetype = "dashed", color = "red")+   geom_vline(data = subset(datos_comb, Escenario == 'Balanceado'), aes(xintercept = raremax_b), linetype = "longdash", color = "red")+  geom_vline(data = subset(datos_comb, Escenario == 'Bajo número de lecturas'), aes(xintercept = raremax_lr), linetype = "dashed", color = "red")+geom_vline(data = subset(datos_comb, Escenario == 'Desigual'), aes(xintercept = raremax_u), linetype = "longdash", color = "red")+facet_wrap(~Escenario, scales = "free")+ theme(legend.position = "bottom") + xlab("Nº de lecturas") +labs(color= "Muestras")+ ylab("Especies")+theme(legend.position = "bottom",legend.text = element_text(size = 7)) + guides(color = guide_legend(ncol = 7),legend.title = element_text(size = 8, family = "Arial"))+  theme ( text = element_text(size = 12, family = "Arial"), axis.title = element_text(size = 12, family = "Arial"),          axis.text = element_text(size = 9, family = "Arial"), title = element_text(size = 14, family = "Arial", face = "bold"), legend.title = element_text(size = 11, family = "Arial"),legend.text = element_text(size = 9, family = "Arial"))
+
+#Se guarda la gráfica en el directorio "figuras"
+
+ggsave ("curves_todos.png", plot = gg_curves,path="./figuras", width = 12, height = 10, dpi = 300)
+```
+
+
+
+
+```{r}
+#Gráfico de curvas de rarefacción a través del conjunto de datos combinado con los datos de los cuatro escenarios, se añaden los puntos de corte para cada uno de los escenarios
+levels(datos_comb$Escenario) <- c("a) Alto número de lecturas", "b) Balanceado", "c) Desigual")
+
+gg_curves<-ggplot(datos_comb, aes(x = Sample, y = Species, group = Site, color = Site)) + geom_line()+ 
+  geom_vline(data = subset(datos_comb, Escenario == 'Alto número de lecturas'), aes(xintercept = raremax_hr), linetype = "dashed", color = "red")+   geom_vline(data = subset(datos_comb, Escenario == 'Balanceado'), aes(xintercept = raremax_b), linetype = "longdash", color = "red")+geom_vline(data = subset(datos_comb, Escenario == 'Desigual'), aes(xintercept = raremax_u), linetype = "longdash", color = "red")+facet_wrap(~ Escenario, ncol = 3, scales = "free") + theme(legend.position = "bottom") + xlab("Nº de lecturas") +labs(color= "Muestras")+ ylab("Especies")+theme(legend.position = "bottom",legend.text = element_text(size = 12, family = "Arial")) + guides(color = guide_legend(ncol = 9),legend.title = element_text(size = 16, family = "Arial"))+  theme ( text = element_text(size = 14, family = "Arial"), axis.title = element_text(size = 16, family = "Arial"), axis.text = element_text(size = 16, family = "Arial"), title = element_text(size = 16, family = "Arial", face = "bold"),  strip.text.x = element_text(size = 14, family = "Arial", face="bold"))
+
+#Se guarda la gráfica en el directorio "figuras"
+
+ggsave ("curves.png", plot = gg_curves,path="./figuras", width = 20, height = 10, dpi = 300)
+```
+
+Se dibuja el gráfico de curvas de rarefacción de bajo número de lecturas:
+
+```{r}
+#GRÁFICO CURVAS Bajo número de lecturas
+
+gg_curveslr<-ggplot(rare_lr, aes(x = Sample, y = Species, group = Site, color = Site)) + geom_line()+  geom_vline( aes(xintercept = raremax_lr), linetype = "dashed", color = "red")+ theme(legend.position = "bottom") + xlab("Nº de lecturas") +labs(color= "Muestras")+ ylab("Especies")+theme(legend.position = "bottom",legend.text = element_text(size = 12, family = "Arial")) + guides(color = guide_legend(ncol = 9),legend.title = element_text(size = 16, family = "Arial"))+  theme ( text = element_text(size = 14, family = "Arial"), axis.title = element_text(size = 16, family = "Arial"), axis.text = element_text(size = 16, family = "Arial"), title = element_text(size = 16, family = "Arial", face = "bold"),  strip.text.x = element_text(size = 14, family = "Arial", face="bold"))
+
+#Se guarda la gráfica en el directorio "figuras"
+
+ggsave ("cur_lr.png", plot = gg_curveslr,path="./figuras", width = 15, height = 10, dpi = 300)
+```
+
+
+```{r}
+#Rarefacción
+set.seed(123) #Se establece la semilla para la reproducibilidad
+#Se establece el argumento replace=FALSE para que la rarefacción sea sin reemplazo
+rarefied_hr<-rarefy_even_depth(phyloseq_hr, sample.size=raremax_hr, replace = FALSE, rngseed=123)
+rarefied_b<-rarefy_even_depth(phyloseq_b, sample.size=raremax_b,replace = FALSE, rngseed=123)
+rarefied_lr<-rarefy_even_depth(phyloseq_lr, sample.size=raremax_lr,replace = FALSE, rngseed=123)
+rarefied_u<-rarefy_even_depth(phyloseq_u, sample.size=raremax_u,replace = FALSE, rngseed=123)
+```
+Para estudiar la estructura de las comunidades microbianas antés y después de la rarefacción. Para ello se calculan las frecuencias relativas pre- y post- rarefacción.Se hace a partir de los objetos phyloseq correspondientes. Generando los dataframes para cada uno y combinandolos para unificar los datos para cada uno de los escenarios
+
+```{r}
+#No rarefactados
+# Se Calcula la abundancia relativa
+rel_hr <- transform_sample_counts(phyloseq_hr, function(x) x / sum(x))
+#Se genera el dataframe
+rel_hr<-psmelt(rel_hr)
+#Se añade la variable "Datos"
+rel_hr$Datos<-"Originales"
+rel_lr <- transform_sample_counts(phyloseq_lr, function(x) x / sum(x))
+#Se genera el dataframe
+rel_lr<-psmelt(rel_lr)
+#Se añade la variable "Datos"
+rel_lr$Datos<-"Originales"
+rel_b <- transform_sample_counts(phyloseq_b, function(x) x / sum(x))
+#Se genera el dataframe
+rel_b<-psmelt(rel_b)
+#Se añade la variable "Datos"
+rel_b$Datos<-"Originales"
+rel_u<- transform_sample_counts(phyloseq_u, function(x) x / sum(x))
+#Se genera el dataframe
+rel_u<-psmelt(rel_u)
+#Se añade la variable "Datos"
+rel_u$Datos<-"Originales"
+```
+
+Se calculan las frecuencias relativas de los objetos phyloseq rarefactados, combinando los dataframes generados con los de los de los objetos originales. Ademá, debido a que hay espacios en blanco en la columna Familia substituyéndolo por "Otras".
+
+```{r}
+#Rarefactados
+# Calcular la abundancia relativa
+rel_hr_r <- transform_sample_counts(rarefied_hr, function(x) x / sum(x))
+#Se genera el dataframe
+rel_hr_r<-psmelt(rel_hr_r)
+#Se añade la variable "Datos"
+rel_hr_r$Datos<-"Rarefactados"
+#Se combinan los datos antes y después de la rarefacción, escenario Alto número de lecturas
+rel_HR<-rbind(rel_hr_r,rel_hr)
+#Se cambian los espacios en blanco en la columna Family por "Otras"
+rel_HR <- rel_HR %>% 
+  mutate(Family = ifelse(Family == '', 'Otras', Family))
+rel_lr_r<- transform_sample_counts(rarefied_lr, function(x) x / sum(x))
+#Se genera el dataframe
+rel_lr_r<-psmelt(rel_lr_r)
+#Se añade la variable "Datos"
+rel_lr_r$Datos<-"Rarefactados"
+#Se combinan los datos antes y después de la rarefacción, escenario Bajo número de lecturas
+rel_LR<-rbind(rel_lr_r,rel_lr)
+#Se cambian los espacios en blanco en la columna Family por "Otras"
+rel_LR <- rel_LR %>% 
+  mutate(Family = ifelse(Family == '', 'Otras', Family))
+rel_b_r<- transform_sample_counts(rarefied_b, function(x) x / sum(x))
+#Se genera el dataframe
+rel_b_r<-psmelt(rel_b_r)
+#Se añade la variable "Datos"
+rel_b_r$Datos<-"Rarefactados"
+#Se combinan los datos antes y después de la rarefacción, escenario Balanceado
+rel_B<-rbind(rel_b_r,rel_b)
+#Se cambian los espacios en blanco en la columna Family por "Otras"
+rel_B <- rel_B %>% 
+  mutate(Family = ifelse(Family == '', 'Otras', Family))
+rel_u_r<- transform_sample_counts(rarefied_u, function(x) x / sum(x))
+#Se genera el dataframe
+rel_u_r<-psmelt(rel_u_r)
+#Se añade la variable "Datos"
+rel_u_r$Datos<-"Rarefactados"
+#Se combinan los datos antes y después de la rarefacción, escenario Desigual
+rel_U<-rbind(rel_u_r,rel_u)
+#Se cambian los espacios en blanco en la columna Family por "Otras"
+rel_U <- rel_U %>% 
+  mutate(Family = ifelse(Family == '', 'Otras', Family))
+```
+
+Debido a que los datos se componen de tres comunidades simuladas. dos de ellas la escalonada y la uniforme son comunidades simuladas BEI. Y por otro lado, la comunidad simulada diseñada nombrada como VAIO. Se filtran los datos por separando las muestra correspondientes a BEI:
+
+```{r}
+#Se filtra por "BEI"
+BEI_hr<- rel_HR[grepl("^BEI", rel_HR$Sample), ]
+BEI_lr<- rel_LR[grepl("^BEI", rel_LR$Sample), ]
+BEI_b<- rel_B[grepl("^BEI", rel_B$Sample), ]
+BEI_u<- rel_U[grepl("^BEI", rel_U$Sample), ]
+```
+
+```{r}
+#Gráficas comparación pre- Y post- rarefaccion de abundancias relativas
+#Balanceado
+BEI_B<-ggplot(BEI_b, aes(x = Sample, y = Abundance, fill = Family)) + geom_bar(stat = "identity") + labs(fill="Familia")+xlab("Muestras")+ylab("Abundancia relativa")+facet_wrap(~Datos)+theme(axis.text.x = element_text(angle = 70, hjust = 1))+guides(fill = guide_legend(ncol = 1))+  theme ( text = element_text(size = 10, family = "Arial"), axis.title = element_text(size = 12, family = "Arial"),          axis.text = element_text(size = 10, family = "Arial"), title = element_text(size = 14, family = "Arial", face = "bold"),legend.title = element_text(size = 12, family = "Arial"),legend.text = element_text(size = 10, family = "Arial"),strip.text.x = element_text(size = 12, family = "Arial", face="bold"))
+
+ggsave ("BEI_B.png", plot = BEI_B,path="./figuras", width = 10, height = 8, dpi = 300)
+
+#Alto número de lecturas
+
+BEI_HR<-ggplot(BEI_hr, aes(x = Sample, y = Abundance, fill = Family)) + geom_bar(stat = "identity") + labs(fill="Familia")+xlab("Muestras")+ylab("Abundancia relativa") +facet_wrap(~Datos)+labs(fill="Familia")+theme(axis.text.x = element_text(angle = 70, hjust = 1))+guides(fill = guide_legend(ncol = 2))+  theme ( text = element_text(size = 12, family = "Arial"), axis.title = element_text(size = 12, family = "Arial"),          axis.text = element_text(size = 10, family = "Arial"), title = element_text(size = 14, family = "Arial", face = "bold"), legend.title = element_text(size = 12, family = "Arial"),legend.text = element_text(size = 10, family = "Arial"),strip.text.x = element_text(size = 12, family = "Arial", face="bold"))
+
+ggsave ("BEI_HR.png", plot = BEI_HR,path="./figuras", width = 10, height = 8, dpi = 300)
+```
+
+```{r}
+#Desigual
+
+BEI_U<-ggplot(BEI_u, aes(x = Sample, y = Abundance, fill = Family)) + geom_bar(stat = "identity") + labs(fill="Familia")+xlab("Muestras")+ylab("Abundancia relativa") +facet_wrap(~Datos)+labs(fill="Familia")+labs(fill="Familia")+theme(axis.text.x = element_text(angle = 70, hjust = 1))+guides(fill = guide_legend(ncol = 2))+  theme ( text = element_text(size = 10, family = "Arial"), axis.title = element_text(size = 12, family = "Arial"),axis.text = element_text(size = 10, family = "Arial"), title = element_text(size = 14, family = "Arial", face = "bold"), legend.title = element_text(size = 12, family = "Arial"),legend.text = element_text(size = 10, family = "Arial"),strip.text.x = element_text(size = 12, family = "Arial", face="bold"))
+
+ggsave ("BEI_U.png", plot = BEI_U,path="./figuras", width = 10, height = 8, dpi = 300)
+```
+
+```{r}
+#Bajo número de lecturas
+
+BEI_LR<-ggplot(BEI_lr, aes(x = Sample, y = Abundance, fill = Family)) + geom_bar(stat = "identity") +xlab("Muestras")+ylab("Abundancia relativa")+labs(fill="Familia") +facet_wrap(~Datos)+theme(axis.text.x = element_text(angle = 70, hjust = 1))+guides(fill = guide_legend(ncol = 1))+  theme ( text = element_text(size = 10, family = "Arial"), axis.title = element_text(size = 12, family = "Arial"), axis.text = element_text(size = 10, family = "Arial"),title = element_text(size = 14, family = "Arial", face = "bold"),
+legend.title = element_text(size = 12, family = "Arial"),legend.text = element_text(size = 10, family = "Arial"),strip.text.x = element_text(size = 12, family = "Arial", face="bold"))
+
+ggsave ("BEI_LR.png", plot = BEI_LR,path="./figuras", width = 10, height = 8, dpi = 300)
+```
+
+
+Se filtra por la comunidad "VAIO":
+
+```{r}
+#Se filtra por VAIO
+VAIO_lr<- rel_LR[grepl("^VAIO", rel_LR$Sample), ]
+VAIO_hr<- rel_HR[grepl("^VAIO", rel_HR$Sample), ]
+VAIO_b<- rel_B[grepl("^VAIO", rel_B$Sample), ]
+VAIO_u<- rel_U[grepl("^VAIO", rel_U$Sample), ]
+```
+
+
+```{r}
+#Se grafican los diagramas de barras para la comunidad simulada diseñada.
+#Balanceado
+VAIO_B<-ggplot(VAIO_b, aes(x = Sample, y = Abundance, fill = Family)) + geom_bar(stat = "identity") +xlab("Muestras")+ylab("Abundancia relativa")+ labs(fill="Familia") +facet_wrap(~Datos)+theme(axis.text.x = element_text(angle = 70, hjust = 1))+guides(fill = guide_legend(ncol = 1))+  theme ( text = element_text(size = 10, family = "Arial"), axis.title = element_text(size = 14, family = "Arial"),          axis.text = element_text(size = 12, family = "Arial"),
+          title = element_text(size = 14, family = "Arial", face = "bold"),
+          legend.title = element_text(size = 12, family = "Arial"),legend.text = element_text(size = 10, family = "Arial"),strip.text.x = element_text(size = 12, family = "Arial", face="bold"))
+
+ggsave ("VAIO_B.png", plot = VAIO_B,path="./figuras", width = 12, height = 8, dpi = 300)
+
+#Alto número de lecturas
+VAIO_HR<-ggplot(VAIO_hr, aes(x = Sample, y = Abundance, fill = Family)) + geom_bar(stat = "identity")+xlab("Muestras")+ylab("Abundancia relativa") + labs(fill="Familia") +facet_wrap(~Datos)+theme(axis.text.x = element_text(angle = 70, hjust = 1))+guides(fill = guide_legend(ncol = 2))+  theme ( text = element_text(size = 12, family = "Arial"), axis.title = element_text(size = 14, family = "Arial"),          axis.text = element_text(size = 12, family = "Arial"),
+          title = element_text(size = 14, family = "Arial", face = "bold"),
+          legend.title = element_text(size = 12, family = "Arial"),legend.text = element_text(size = 10, family = "Arial"),strip.text.x = element_text(size = 12, family = "Arial", face="bold"))
+
+ggsave ("VAIO_HR.png", plot = VAIO_HR,path="./figuras", width = 12, height = 8, dpi = 300)
+```
+
+```{r}
+#Desigual
+VAIO_U<-ggplot(VAIO_u, aes(x = Sample, y = Abundance, fill = Family)) + geom_bar(stat = "identity") + labs(fill="Familia")+xlab("Muestras")+ylab("Abundancia relativa") +facet_wrap(~Datos)+theme(axis.text.x = element_text(angle = 70, hjust = 1))+guides(fill = guide_legend(ncol = 1))+  theme ( text = element_text(size = 10, family = "Arial"), axis.title = element_text(size = 14, family = "Arial"),          axis.text = element_text(size = 12, family = "Arial"),
+          title = element_text(size = 14, family = "Arial", face = "bold"),
+          legend.title = element_text(size = 12, family = "Arial"),legend.text = element_text(size = 10, family = "Arial"),strip.text.x = element_text(size = 12, family = "Arial", face="bold"))
+
+ggsave ("VAIO_U.png", plot = VAIO_U,path="./figuras", width = 12, height = 8, dpi = 300)
+```
+
+```{r}
+#Bajo número de lecturas
+VAIO_LR<-ggplot(VAIO_lr, aes(x = Sample, y = Abundance, fill = Family)) + geom_bar(stat = "identity") + labs(fill="Familia")+xlab("Muestras")+ylab("Abundancia relativa") +facet_wrap(~Datos)+theme(axis.text.x = element_text(angle = 70, hjust = 1))+guides(fill = guide_legend(ncol = 1))+  theme ( text = element_text(size = 10, family = "Arial"), axis.title = element_text(size = 14, family = "Arial"),          axis.text = element_text(size = 12, family = "Arial"),
+          title = element_text(size = 14, family = "Arial", face = "bold"),
+          legend.title = element_text(size = 12, family = "Arial"),legend.text = element_text(size = 10, family = "Arial"),strip.text.x = element_text(size = 12, family = "Arial", face="bold"))
+
+ggsave ("VAIO_LR.png", plot = VAIO_LR,path="./figuras", width = 12, height = 8, dpi = 300)
+```
+
+
+
+
+```{r}
+#Balanceado
+#Se cambian las filas vacías en la columna Familia con Otras
+  rel_b <- rel_b %>% 
+  mutate(Family = ifelse(Family == '', 'Otras', Family))
+rel_b_r <- rel_b_r %>% 
+  mutate(Family = ifelse(Family == '', 'Otras', Family))
+
+df_b_r <- rel_b_r %>%
+  group_by(Sample, Family) %>%
+  summarize(Abundance = sum(Abundance), .groups = 'drop') %>%
+  pivot_wider(names_from = Family, values_from = Abundance, values_fill = list(Abundance = 0))
+df_b<- rel_b %>%
+  group_by(Sample, Family) %>%
+  summarize(Abundance = sum(Abundance), .groups = 'drop') %>%
+  pivot_wider(names_from = Family, values_from = Abundance, values_fill = list(Abundance = 0))
+
+correlaciones_b <- numeric(nrow(df_b))
+
+# Calcular la correlación para cada muestra
+for (i in 1:nrow(df_b)) {
+  correlaciones_b[i] <- cor(as.numeric(df_b[i, -1]), as.numeric(df_b_r[i, -1]), method = "spearman", use = "complete.obs")
+}
+
+# Ver los resultados
+print(correlaciones_b)
+```
+```{r}
+#Alto número de lecturas
+#Calculo de correlaciones 
+#Se cambian las filas vacías en la columna Familia con Otras
+rel_hr <- rel_hr %>% 
+  mutate(Family = ifelse(Family == '', 'Otras', Family))
+rel_hr_r <- rel_hr_r %>% 
+  mutate(Family = ifelse(Family == '', 'Otras', Family))
+
+#Se disponen el dataframe abundancias rarefactadas para ser comparado con las originales
+df_hr_r <- rel_hr_r %>%
+  group_by(Sample, Family) %>%
+  summarize(Abundance = sum(Abundance), .groups = 'drop') %>%
+  pivot_wider(names_from = Family, values_from = Abundance, values_fill = list(Abundance = 0))
+#Datos originales
+df_hr<- rel_hr %>%
+  group_by(Sample, Family) %>%
+  summarize(Abundance = sum(Abundance), .groups = 'drop') %>%
+  pivot_wider(names_from = Family, values_from = Abundance, values_fill = list(Abundance = 0))
+#Vector donde se van a guardar las correlaciones
+correlaciones_hr <- numeric(nrow(df_hr))
+
+# Calcular la correlación de Spearman para cada muestra
+for (i in 1:nrow(df_hr)) {
+  correlaciones_hr[i] <- cor(as.numeric(df_hr[i, -1]), as.numeric(df_hr_r[i, -1]), method = "spearman", use = "complete.obs")
+}
+
+# Ver los resultados
+print(correlaciones_hr)
+```
+```{r}
+#Bajo número de lecturas
+#Se disponen el dataframe abundancias rarefactadas para ser comparado con las originales
+df_lr_r <- rel_lr_r %>%
+  group_by(Sample, Family) %>%
+  summarize(Abundance = sum(Abundance), .groups = 'drop') %>%
+  pivot_wider(names_from = Family, values_from = Abundance, values_fill = list(Abundance = 0))
+#No rarefactadas
+df_lr<- rel_lr %>%
+  group_by(Sample, Family) %>%
+  summarize(Abundance = sum(Abundance), .groups = 'drop') %>%
+  pivot_wider(names_from = Family, values_from = Abundance, values_fill = list(Abundance = 0))
+for (family in setdiff(names(df_lr), names(df_lr_r))) {
+    df_lr_r[[family]] <- 0
+}
+#Vector donde se guardan las correlaciones
+correlaciones_lr <- numeric(nrow(df_lr))
+
+# Calcular la correlación de Spearman para cada muestra
+for (i in 1:nrow(df_lr)) {
+  correlaciones_lr[i] <- cor(as.numeric(df_lr[i, -1]), as.numeric(df_lr_r[i, -1]), method = "spearman", use = "complete.obs")
+}
+
+# Ver los resultados
+print(correlaciones_lr)
+```
+
+```{r}
+#U
+#Se cambian las filas vacías en la columna Familia con Otras
+rel_u <- rel_u %>% 
+  mutate(Family = ifelse(Family == '', 'Otras', Family))
+rel_u_r <- rel_u_r %>% 
+  mutate(Family = ifelse(Family == '', 'Otras', Family))
+#Se disponen el dataframe abundancias rarefactadas para ser comparado con las originales
+df_u_r <- rel_u_r %>%
+  group_by(Sample, Family) %>%
+  summarize(Abundance = sum(Abundance), .groups = 'drop') %>%
+  pivot_wider(names_from = Family, values_from = Abundance, values_fill = list(Abundance = 0))
+#No rarefactadas
+df_u<- rel_u %>%
+  group_by(Sample, Family) %>%
+  summarize(Abundance = sum(Abundance), .groups = 'drop') %>%
+  pivot_wider(names_from = Family, values_from = Abundance, values_fill = list(Abundance = 0))
+#Vector donde se guardan las correlaciones
+correlaciones_u <- numeric(nrow(df_u))
+
+# Se calcula la correlación de spearman para cada muestra
+for (i in 1:nrow(df_u)) {
+  correlaciones_u[i] <- cor(as.numeric(df_u[i, -1]), as.numeric(df_u_r[i, -1]), method = "spearman", use = "complete.obs")
+}
+
+# Ver los resultados
+print(correlaciones_u)
+```
+```{r}
+#Dataframe correlación
+#Alto número de lecturas
+cor_hr<-data.frame(correlaciones_hr)
+cor_hr$Escenario<-"Alto número de lecturas"
+cor_hr$Sample<-unique(df_hr$Sample)
+cor_hr$Correlacion<-correlaciones_hr
+cor_hr<-cor_hr[,-1]
+#Bajo número de lecturas
+cor_lr<-data.frame(correlaciones_lr)
+cor_lr$Escenario<-"Bajo número de lecturas"
+cor_lr$Sample<-unique(df_lr$Sample)
+cor_lr$Correlacion<-correlaciones_lr
+cor_lr<-cor_lr[,-1]
+#Balanceado
+cor_b<-data.frame(correlaciones_b)
+cor_b$Escenario<-"Balanceado"
+cor_b$Sample<-unique(df_b$Sample)
+cor_b$Correlacion<-correlaciones_b
+cor_b<-cor_b[,-1]
+#Desigual
+cor_u<-data.frame(correlaciones_u)
+cor_u$Escenario<-"Desigual"
+cor_u$Sample<-unique(df_u$Sample)
+cor_u$Correlacion<-correlaciones_u
+cor_u<-cor_u[,-1]
+#Unificación de los conjuntos de correlaciones en un dataframe que guarde toda la información
+cor<-rbind(cor_hr,cor_b,cor_u)
+
+```
+
+```{r}
+#Gráfico correlaciones:
+ggcor<-ggplot(cor, aes(x = Sample, y = Correlacion, shape = Escenario, color= Escenario)) +
+  geom_point(size=4) +
+  labs(x = "Muestras", y = "Correlación") +  theme ( text = element_text(size = 10, family = "Arial"), axis.title = element_text(size = 14, family = "Arial"),          axis.text = element_text(size = 12, family = "Arial"),
+          title = element_text(size = 14, family = "Arial", face = "bold"),
+          legend.title = element_text(size = 12, family = "Arial"),legend.text = element_text(size = 10, family = "Arial"),strip.text.x = element_text(size = 12, family = "Arial", face="bold"), axis.text.x = element_text(angle = 70, hjust = 1))
+
+ggsave ("ggcor.png", plot = ggcor,path="./figuras", width = 10, height = 5, dpi = 300)
+```
+
+
+Se calculan los índices de diversidad para pre- y post- rarefacción:
+
+```{r}
+#No rarefactados
+#Se calculan los índices de "Shannon", "Inversa de Simpson" y "Observed"
+#Se añaden las variables Datos y Escenario
+#Alto número de lecturas
+div_hr<-estimate_richness(phyloseq_hr, measures = c("Shannon","InvSimpson" ,"Observed")) 
+div_hr$Datos<-"Originales"
+div_hr$Escenario<-"Alto número de lecturas"
+#Bajo número de lecturas
+div_lr<-estimate_richness(phyloseq_lr, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_lr$Datos<-"Originales"
+div_lr$Escenario<-"Bajo número de lecturas"
+#Balanceado
+div_b<-estimate_richness(phyloseq_b, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_b$Datos<-"Originales"
+div_b$Escenario<-"Balanceado"
+#Desigual
+div_u<-estimate_richness(phyloseq_u, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_u$Datos<-"Originales"
+div_u$Escenario<-"Desigual"
+
+#Rarefactados
+#Se calculan los índices de "Shannon", "Inversa de Simpson" y "Observed"
+#Se añaden las variables Datos y Escenario
+#Alto número de lecturas
+div_hr_r<-estimate_richness(rarefied_hr, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_hr_r$Datos<-"Rarefactados"
+div_hr_r$Escenario<-"Alto número de lecturas"
+div_HR<-rbind(div_hr_r, div_hr)
+#Bajo número de lecturas
+div_lr_r<-estimate_richness(rarefied_lr, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_lr_r$Datos<-"Rarefactados"
+div_lr_r$Escenario<-"Bajo número de lecturas"
+div_LR<-rbind(div_lr_r, div_lr)
+#Balanceado
+div_b_r<-estimate_richness(rarefied_b, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_b_r$Datos<-"Rarefactados"
+div_b_r$Escenario<-"Balanceado"
+div_B<-rbind(div_b_r, div_b)
+#Desigual
+div_u_r<-estimate_richness(rarefied_u, measures = c("Shannon","InvSimpson" ,"Observed"))
+div_u_r$Datos<-"Rarefactados"
+div_u_r$Escenario<-"Desigual"
+div_U<-rbind(div_u_r, div_u)
+#Se combinan los datos de todos los escenarios
+div<-rbind(div_B,div_HR,div_U)
+```
+
+Se calcula la diferencia estadística en cada uno de los índices de diversidad entre los datos pre- y post rarefacción
+
+```{r message=FALSE, warning=FALSE}
+#Significancia estadística Shannon mediante el test de Wilcoxon
+sh_B<-wilcox.test(div_B$Shannon~div_B$Datos, paired=TRUE)
+sh_B$p.value
+sh_hr<-wilcox.test(div_HR$Shannon~div_HR$Datos, paired=TRUE)
+sh_hr$p.value
+sh_lr<-wilcox.test(div_LR$Shannon~div_LR$Datos, paired=TRUE)
+sh_lr$p.value
+sh_u<-wilcox.test(div_U$Shannon~div_U$Datos, paired=TRUE)
+sh_u$p.value
+```
+
+```{r message=FALSE, warning=FALSE}
+#Significancia estadística inversa de Simpson mediante el test de Wilcoxon
+iv_B<-wilcox.test(div_B$InvSimpson~div_B$Datos, paired=TRUE)
+iv_B$p.value
+iv_hr<-wilcox.test(div_HR$InvSimpson~div_HR$Datos, paired=TRUE)
+iv_hr$p.value
+iv_lr<-wilcox.test(div_LR$InvSimpson~div_LR$Datos, paired=TRUE)
+iv_lr$p.value
+iv_u<-wilcox.test(div_U$InvSimpson~div_U$Datos, paired=TRUE)
+iv_u$p.value
+```
+
+```{r message=FALSE, warning=FALSE}
+#Significancia estadística Observed mediante el test de Wilcoxon
+Ob_B<-wilcox.test(div_B$Observed~div_B$Datos, paired=TRUE)
+Ob_B$p.value
+Ob_hr<-wilcox.test(div_HR$Observed~div_HR$Datos, paired=TRUE)
+Ob_hr$p.value
+Ob_lr<-wilcox.test(div_LR$Observed~div_LR$Datos, paired=TRUE)
+Ob_lr$p.value
+Ob_u<-wilcox.test(div_U$Observed~div_U$Datos, paired=TRUE)
+Ob_u$p.value
+```
+
+Se dibujan los gráficos de los indices de diversidad, haciendo una comparación entre datos originales y rarefactados ostrando los cuatro escenarios en la misma gráfica
+
+
+
+```{r}
+#Índice de Shannon
+div_sh<-ggplot(div, aes(x=Escenario, y=Shannon, fill=Datos)) +
+  geom_boxplot() +
+   labs( x="Escenario", y="Índice de Shannon") +
+  scale_fill_brewer(palette="Set3") +theme ( text = element_text(size = 10, family = "Arial"), axis.title = element_text(size = 12, family = "Arial"),  axis.text = element_text(size = 10, family = "Arial"),
+          title = element_text(size = 12, family = "Arial", face = "bold"),
+           legend.title = element_text(size = 12, family = "Arial"),legend.text = element_text(size = 10, family = "Arial"))+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave ("div_sh.png", plot = div_sh,path="./figuras", width = 10, height = 5, dpi = 300)
+```
+
+
+```{r}
+#Índice de esecies observadas 
+div_o<-ggplot(div, aes(x=Escenario, y=Observed, fill=Datos)) +
+  geom_boxplot() +
+   labs(x="Escenario",
+        y="Índice de nº de especies observadas") +
+  scale_fill_brewer(palette="Set2") +theme ( text = element_text(size = 10, family = "Arial"), axis.title = element_text(size = 12, family = "Arial"),          axis.text = element_text(size = 10, family = "Arial"),
+          title = element_text(size = 12, family = "Arial", face = "bold"),
+         legend.title = element_text(size = 12, family = "Arial"),legend.text = element_text(size = 10, family = "Arial"))+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave ("div_o.png", plot = div_o,path="./figuras", width = 10, height = 5, dpi = 300) 
+ 
+```
+
+
+```{r}
+#Índice de la Inversa de simpson
+div_iv<-ggplot(div, aes(x=Escenario, y=InvSimpson, fill=Datos)) +
+geom_boxplot() +labs(x="Escenario",y="Índice de Inversa de Simpson") +
+  scale_fill_brewer(palette="Accent") +theme ( text = element_text(size = 10, family = "Arial"), axis.title = element_text(size = 12, family = "Arial"),  axis.text = element_text(size = 10, family = "Arial"),
+title = element_text(size = 12, family = "Arial", face = "bold"),
+legend.title = element_text(size = 12, family = "Arial"),legend.text = element_text(size = 10, family = "Arial"))+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggsave ("div_iv.png", plot = div_iv,path="./figuras", width = 10, height = 5, dpi = 300)
+```
+
+
+
+
+
