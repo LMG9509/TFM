@@ -156,21 +156,18 @@ punto_saturacion_lr<-14.23846
 
 Se grafican las curvas de rarefacción con todos los puntos de corte con los que se ha trabajado en este estudio:
 
+
 ```{r}
 #Gráficas de curas de rarefacción con todos los puntos de corte
-curvas_seg<-ggplot(datos_comb_Seg, aes(x = Sample, y = Species, group = Site, color = Site))+labs(color = "Muestras") + geom_line()+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = raremax_hr), linetype = "dashed", color = "red")+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = punto_quiebre_hr), linetype = "dashed", color = "green")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = punto_saturacion_hr), linetype = "dashed", color = "blue")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = punto_corte_hr), linetype = "dashed", color = "orange")+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = raremax_b), linetype = "longdash", color = "red")+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = punto_quiebre_b), linetype = "dashed", color = "green")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = punto_saturacion_b), linetype = "dashed", color = "blue")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = punto_corte_b), linetype = "dashed", color = "orange")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Bajo número de lecturas'), aes(xintercept = raremax_lr), linetype = "dashed", color = "red")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Bajo número de lecturas'), aes(xintercept = punto_quiebre_lr), linetype = "dashed", color = "green")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Bajo número de lecturas'), aes(xintercept = punto_saturacion_lr), linetype = "dashed", color = "blue")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Bajo número de lecturas'), aes(xintercept = punto_corte_lr), linetype = "dashed", color = "orange")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = raremax_u), linetype = "longdash", color = "red") +geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = punto_quiebre_u), linetype = "dashed", color = "green")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = punto_saturacion_u), linetype = "dashed", color = "blue")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = punto_corte_u), linetype = "dashed", color = "orange")+facet_wrap(~Escenario, scales = "free")+ theme(legend.position = "bottom") + xlab("Nº de lecturas") + ylab("Especies")+theme(legend.position = "bottom",            legend.text = element_text(size = 7)) + guides(color = guide_legend(ncol = 7))+  theme ( text = element_text(size = 12, family = "Arial"), axis.title = element_text(size = 12, family = "Arial"),
-          axis.text = element_text(size = 9, family = "Arial"),
-          title = element_text(size = 14, family = "Arial", face = "bold"),
-          legend.title = element_text(size = 11, family = "Arial"),legend.text = element_text(size = 9, family = "Arial"))
+curvas_seg<-ggplot(datos_comb_Seg, aes(x = Sample, y = Species, group = Site, color = Site))+labs(color = "Muestras") + geom_line()+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = raremax_hr), linetype = "dashed", color = "red")+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = punto_quiebre_hr), linetype = "dashed", color = "green")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = punto_saturacion_hr), linetype = "dashed", color = "blue")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = punto_corte_hr), linetype = "dashed", color = "orange")+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = raremax_b), linetype = "longdash", color = "red")+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = punto_quiebre_b), linetype = "dashed", color = "green")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = punto_saturacion_b), linetype = "dashed", color = "blue")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = punto_corte_b), linetype = "dashed", color = "orange")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = raremax_u), linetype = "longdash", color = "red") +geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = punto_quiebre_u), linetype = "dashed", color = "green")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = punto_saturacion_u), linetype = "dashed", color = "blue")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = punto_corte_u), linetype = "dashed", color = "orange")+facet_wrap(~Escenario, scales = "free")+ theme(legend.position = "bottom") + xlab("Nº de lecturas") + ylab("Especies")+theme(legend.position = "bottom",legend.text = element_text(size = 11, family = "Arial")) + guides(color = guide_legend(ncol = 7),legend.title = element_text(size = 16, family = "Arial"))+  theme ( text = element_text(size = 14, family = "Arial"), axis.title = element_text(size = 16, family = "Arial"), axis.text = element_text(size = 16, family = "Arial"), title = element_text(size = 16, family = "Arial", face = "bold"),  strip.text.x = element_text(size = 16, family = "Arial", face="bold"))
+ggsave ("curvas_puntos.png", plot = curvas_seg,path="./figuras", width = 14, height = 10, dpi = 300)
 
-ggsave ("curvas_puntos.png", plot = curvas_seg,path="./figuras", width = 12, height = 10, dpi = 300)
 ```
 
 ```{r}
-#Gráficas de curas de rarefacción con todos los puntos de corte
-curvas_seg<-ggplot(datos_comb_Seg, aes(x = Sample, y = Species, group = Site, color = Site))+labs(color = "Muestras") + geom_line()+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = raremax_hr), linetype = "dashed", color = "red")+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = punto_quiebre_hr), linetype = "dashed", color = "green")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = punto_saturacion_hr), linetype = "dashed", color = "blue")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Alto número de lecturas'), aes(xintercept = punto_corte_hr), linetype = "dashed", color = "orange")+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = raremax_b), linetype = "longdash", color = "red")+ geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = punto_quiebre_b), linetype = "dashed", color = "green")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = punto_saturacion_b), linetype = "dashed", color = "blue")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Balanceado'), aes(xintercept = punto_corte_b), linetype = "dashed", color = "orange")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = raremax_u), linetype = "longdash", color = "red") +geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = punto_quiebre_u), linetype = "dashed", color = "green")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = punto_saturacion_u), linetype = "dashed", color = "blue")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Desigual'), aes(xintercept = punto_corte_u), linetype = "dashed", color = "orange")+facet_wrap(~Escenario, scales = "free")+ theme(legend.position = "bottom") + xlab("Nº de lecturas") + ylab("Especies")+theme(legend.position = "bottom",legend.text = element_text(size = 12, family = "Arial")) + guides(color = guide_legend(ncol = 9),legend.title = element_text(size = 16, family = "Arial"))+  theme ( text = element_text(size = 14, family = "Arial"), axis.title = element_text(size = 16, family = "Arial"), axis.text = element_text(size = 16, family = "Arial"), title = element_text(size = 16, family = "Arial", face = "bold"),  strip.text.x = element_text(size = 14, family = "Arial", face="bold"))
-ggsave ("curvas_puntos.png", plot = curvas_seg,path="./figuras", width = 20, height = 10, dpi = 300)
-
+#Curvas LR
+curvas_seg_LR<-ggplot(rare_lr, aes(x = Sample, y = Species, group = Site, color = Site))+labs(color = "Muestras") + geom_line()+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Bajo número de lecturas'), aes(xintercept = raremax_lr), linetype = "dashed", color = "red")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Bajo número de lecturas'), aes(xintercept = punto_quiebre_lr), linetype = "dashed", color = "green")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Bajo número de lecturas'), aes(xintercept = punto_saturacion_lr), linetype = "dashed", color = "blue")+geom_vline(data = subset(datos_comb_Seg, Escenario == 'Bajo número de lecturas'), aes(xintercept = punto_corte_lr), linetype = "dashed", color = "orange")+facet_wrap(~Escenario, scales = "free")+ theme(legend.position = "bottom") + xlab("Nº de lecturas") + ylab("Especies")+theme(legend.position = "bottom",legend.text = element_text(size = 12, family = "Arial")) + guides(color = guide_legend(ncol = 9),legend.title = element_text(size = 16, family = "Arial"))+  theme ( text = element_text(size = 14, family = "Arial"), axis.title = element_text(size = 16, family = "Arial"), axis.text = element_text(size = 16, family = "Arial"), title = element_text(size = 16, family = "Arial", face = "bold"),  strip.text.x = element_text(size = 14, family = "Arial", face="bold"))
+ggsave ("curvas_punto_LRs.png", plot = curvas_seg_LR,path="./figuras", width = 15, height = 10, dpi = 300)
 ```
 
 
@@ -182,13 +179,13 @@ ggsave ("curvas_puntos.png", plot = curvas_seg,path="./figuras", width = 20, hei
 
 div_hr<-estimate_richness(phyloseq_hr, measures = c("Shannon","InvSimpson" ,"Observed"))
 div_hr$Datos<-"Originales"
-div_hr$Escenario<-"Alto numero de lecturas"
+div_hr$Escenario<-"Alto número de lecturas"
 div_hr$Punto<-"Segmentado"
 
 #Bajo número de lecturas
 div_lr<-estimate_richness(phyloseq_lr, measures = c("Shannon","InvSimpson" ,"Observed"))
 div_lr$Datos<-"Originales"
-div_lr$Escenario<-"Bajo numero de lecturas"
+div_lr$Escenario<-"Bajo número de lecturas"
 div_lr$Punto<-"Segmentado"
 
 #Balanceado
@@ -213,14 +210,14 @@ div_u$Punto<-"Segmentado"
 div_hr_rseg<-estimate_richness(rarefied_hr_seg, measures = c("Shannon","InvSimpson" ,"Observed"))
 div_hr_rseg$Datos<-"Rarefactados"
 div_hr_rseg$Punto<-"Segmentado"
-div_hr_rseg$Escenario<-"Alto numero de lecturas"
+div_hr_rseg$Escenario<-"Alto número de lecturas"
 div_HRseg<-rbind(div_hr_rseg, div_hr)
 
 #Bajo número de lecturas
 div_lr_rseg<-estimate_richness(rarefied_lr_seg, measures = c("Shannon","InvSimpson" ,"Observed"))
 div_lr_rseg$Datos<-"Rarefactados"
 div_lr_rseg$Punto<-"Segmentado"
-div_lr_rseg$Escenario<-"Bajo numero de lecturas"
+div_lr_rseg$Escenario<-"Bajo número de lecturas"
 #Se seleccionan las muestras comunes, las retenidas
 nombres_muestras_originales <- rownames(div_lr)
 nombres_muestras_rarefactados <- rownames(div_lr_rseg)
@@ -246,6 +243,7 @@ div_Useg<-rbind(div_u_rseg, div_u)
 Div_seg<-rbind(div_Useg,div_HRseg,div_Bseg)
 
 write.csv(Div_seg, file = "Diversidad_segmetado.csv", row.names = FALSE)
+write.csv(div_LRseg, file = "Diversidad_segmetadoLR.csv", row.names = FALSE)
 ```
 
 ```{r}
@@ -332,6 +330,44 @@ Ob_lrseg$p.value
 Ob_useg<-wilcox.test(div_Useg$Observed~div_Useg$Datos, paired=TRUE)
 Ob_useg$p.value
 ```
+```{r}
+
+#Se cargan los datos de diversidad de los tres métodos de punto de corte y se unen en el mismo conjunto de datos
+library(readr)
+Diversidad_derivadaLR <- read_csv("Diversidad_derivada_lr.csv")
+Diversidad_segmetadoLR <- read_csv("Diversidad_segmetadoLR.csv")
+Diversidad_logisticoLR <- read_csv("Diversidad_logistico_LR.csv")
+
+Diversidad_LR<-rbind(Diversidad_derivadaLR,Diversidad_segmetadoLR,Diversidad_logisticoLR)
+```
+
+```{r}
+#Graficos LR
+ #Gráfica diagrama de cajas índice de especies observadas
+div_punto_LR<-ggplot(Diversidad_LR, aes(x=Punto, y=Observed, fill=Datos)) +
+  geom_boxplot() +labs( x="Punto de corte",  y="Índice de Especies Observadas") + scale_fill_brewer(palette="Set2")+theme ( text = element_text(size = 10, family = "Arial"), axis.title = element_text(size = 12, family = "Arial"),          axis.text = element_text(size = 10, family = "Arial"), title = element_text(size = 12, family = "Arial", face = "bold"),legend.title = element_text(size = 12, family = "Arial"),legend.text = element_text(size = 10, family = "Arial"))+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#Gráfica diagrama de cajas índice de Shannon
+div_puntoss_lr<-ggplot(Diversidad_LR, aes(x=Punto, y=Shannon, fill=Datos)) +
+  geom_boxplot() +
+   labs(x="Punto de corte",
+        y="Índice de Shannon") +
+  scale_fill_brewer(palette="Set3")+ theme ( text = element_text(size = 10, family = "Arial"), axis.title = element_text(size = 12, family = "Arial"),          axis.text = element_text(size = 10, family = "Arial"),
+          title = element_text(size = 12, family = "Arial", face = "bold"),
+           legend.title = element_text(size = 12, family = "Arial"),legend.text = element_text(size = 10, family = "Arial"))+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#Diagrama de cajas del índice de la inversa de Simpson
+div_puntos_lr<-ggplot(Diversidad, aes(x=Punto, y=InvSimpson, fill=Datos)) +
+geom_boxplot() +labs( x="Punto de corte",y="Índice de Inversa de Simpson") +
+  scale_fill_brewer(palette="Accent") +theme ( text = element_text(size = 10, family = "Arial"), axis.title = element_text(size = 12, family = "Arial"),  axis.text = element_text(size = 10, family = "Arial"),
+title = element_text(size = 12, family = "Arial", face = "bold"),
+legend.title = element_text(size = 12, family = "Arial"),legend.text = element_text(size = 10, family = "Arial"))+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+dv_lr<-grid.arrange(div_punto_LR, div_puntos_lr, div_puntoss_lr, ncol = 1)
+
+ggsave ("div_lr_.png", plot = dv_lr,path="./figuras", width = 10, height = 13, dpi = 300)
+```
+
 
 Para evaluar la calidad del método se calcula el porcentaje de muestras retenidas en cada uno de los escenarios:
 Porcentaje de muestras retenidas

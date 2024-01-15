@@ -110,12 +110,12 @@ Se calculan los índices de diversidad para pre- y post- rarefacción, realizand
 #Alto número de lecturas
 div_hr<-estimate_richness(phyloseq_hr, measures = c("Shannon","InvSimpson" ,"Observed"))
 div_hr$Datos<-"Originales"
-div_hr$Escenario<-"Alto numero de lecturas"
+div_hr$Escenario<-"Alto número de lecturas"
 div_hr$Punto<-"Logistico"
 #Bajo número de lecturas
 div_lr<-estimate_richness(phyloseq_lr, measures = c("Shannon","InvSimpson" ,"Observed"))
 div_lr$Datos<-"Originales"
-div_lr$Escenario<-"Bajo numero de lecturas"
+div_lr$Escenario<-"Bajo número de lecturas"
 div_lr$Punto<-"Logistico"
 #Balanceado
 div_b<-estimate_richness(phyloseq_b, measures = c("Shannon","InvSimpson" ,"Observed"))
@@ -137,7 +137,7 @@ div_u$Punto<-"Logistico"
 div_hr_rlog<-estimate_richness(rarefied_hrlog, measures = c("Shannon","InvSimpson" ,"Observed"))
 div_hr_rlog$Datos<-"Rarefactados"
 div_hr_rlog$Punto<-"Logistico"
-div_hr_rlog$Escenario<-"Alto numero de lecturas"
+div_hr_rlog$Escenario<-"Alto número de lecturas"
 
 #Se seleccionan las muestras comunes, las retenidas
 nombres_muestras_originaleslhr <- rownames(div_hr)
@@ -151,7 +151,7 @@ div_HRlog<-rbind(div_hr_rlog, div_hr)
 div_lr_rlog<-estimate_richness(rarefied_lrlog, measures = c("Shannon","InvSimpson" ,"Observed"))
 div_lr_rlog$Datos<-"Rarefactados"
 div_lr_rlog$Punto<-"Logistico"
-div_lr_rlog$Escenario<-"Bajo numero de lecturas"
+div_lr_rlog$Escenario<-"Bajo número de lecturas"
 
 #Se seleccionan las muestras comunes, las retenidas
 nombres_muestras_originalesllr <- rownames(div_lr)
@@ -192,6 +192,8 @@ div_Ulog<-rbind(div_u_rlog, div_u)#Se guardan lo datos en un único dataframe de
 Div_log<-rbind(div_Ulog,div_HRlog,div_Blog) #Se crea un dataframe conjunto
 
 write.csv(Div_log, file = "Diversidad_logistico.csv", row.names = FALSE) #Se exporta el dataframe de diversidad a formato .csv
+
+write.csv(div_LRlog, file = "Diversidad_logistico_LR.csv", row.names = FALSE) #Se exporta el dataframe de diversidad LR a formato .csv
 ```
 
 Se calcula la significación estadística mediante el test de Wilcoxon para cada escenario:
