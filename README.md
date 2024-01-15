@@ -3,6 +3,7 @@ Este repositorio forma parte del trabajo de fin de master con título:
 "Evaluación del impacto del proceso de rarefacción en la detección de comunidades microbianas en datos de amplicones ARNr 16S"
 
 Resumen:
+
 En la actualidad, la rarefacción es uno de los temas de debate en la comunidad científica. En 2014, McMurdie y Holmes publicaron un artículo en el que afirmaban que rarefactar los datos es inadmisible. 
 A este artículo, en 2023, Schloss responde posicionándose a favor de la rarefacción. Debido a la gran controversia creada alrededor de este proceso empleado en el análisis del amplicón ARNr 16S,
 se plantean como objetivos analizar el impacto de la rarefacción en este tipo de análisis y automatizar la elección del punto de corte. Para evitar la arbitrariedad que se crítica de su elección. 
