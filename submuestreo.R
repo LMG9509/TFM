@@ -44,7 +44,7 @@ output_base_dir <- "/home/lorena/TFM/muestras"
 
 #Asignación de probabilidades
 
-escenarios <- list(high_reads = 0.1, balanced_reads = 0.5, low_reads = 0.6, unequal_reads = runif(1, min = 0.2, max = 0.7))
+escenarios <- list(high_reads = 0.1, balanced_reads = 0.5, low_reads = 0.7, unequal_reads = runif(1, min = 0.2, max = 0.7))
 
 #Directorios de salida
 
